@@ -1,4 +1,4 @@
-name: Build Flutter Android APK
+name: Build Signed Flutter APK
 
 on:
   push:
@@ -20,14 +20,26 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      - name: Decode keystore
+        run: |
+          mkdir -p android/app
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/visora-key.keystore
+
+      - name: Create key.properties
+        run: |
+          echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=visora-key.keystore" >> android/key.properties
+
       - name: Accept Android licenses
         run: yes | sdkmanager --licenses || true
 
-      - name: Build APK (release)
+      - name: Build Signed Release APK
         run: flutter build apk --release
 
-      - name: Upload APK Artifact
+      - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: visora-release-apk
+          name: visora-signed-apk
           path: build/app/outputs/flutter-apk/*.apk
