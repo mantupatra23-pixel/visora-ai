@@ -38,8 +38,11 @@ jobs:
       - name: Build Signed Release APK
         run: flutter build apk --release
 
+      - name: Verify APK Output
+        run: ls -lh build/app/outputs/flutter-apk/
+
       - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
           name: visora-signed-apk
-          path: build/app/outputs/flutter-apk/*.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
