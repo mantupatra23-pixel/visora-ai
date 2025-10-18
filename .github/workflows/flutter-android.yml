@@ -1,4 +1,4 @@
-name: Build Signed Flutter APK
+name: Build Signed Flutter APK (Cloud Only)
 
 on:
   push:
@@ -8,44 +8,42 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Setup Flutter (Stable 3.19.6)
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.19.6'
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.19.6'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+    - name: Create Android Folder (Auto)
+      run: |
+        flutter create .
+        echo "✅ Android folder recreated automatically on cloud."
 
-      - name: Flutter pub get
-        run: flutter pub get
+    - name: Flutter pub get
+      run: flutter pub get
 
-      - name: Decode keystore
-        run: |
-          mkdir -p android/app
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/visora-key.keystore
+    - name: Decode keystore
+      run: echo "${{ secrets.VISORA_KEY }}" | base64 --decode > visora-key.keystore
 
-      - name: Create key.properties
-        run: |
-          echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" > android/key.properties
-          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
-          echo "storeFile=visora-key.keystore" >> android/key.properties
+    - name: Create key.properties
+      run: |
+        echo "storePassword=${{ secrets.KEYSTORE_PASS }}" >> android/key.properties
+        echo "keyPassword=${{ secrets.KEYSTORE_PASS }}" >> android/key.properties
+        echo "keyAlias=visora" >> android/key.properties
+        echo "storeFile=visora-key.keystore" >> android/key.properties
 
-      - name: Accept Android licenses
-        run: yes | sdkmanager --licenses || true
+    - name: Accept Android licenses
+      run: yes | sdkmanager --licenses || true
 
-      - name: Build Signed Release APK
-        run: flutter build apk --release
+    - name: Build Signed Release APK
+      run: flutter build apk --release
 
-      - name: Verify APK Output
-        run: ls -lh build/app/outputs/flutter-apk/
-
-      - name: Upload Signed APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: visora-signed-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+    - name: Upload Signed APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: visora-signed-apk
+        path: build/app/outputs/flutter-apk/app-release.apk
