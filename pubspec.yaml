@@ -1,5 +1,5 @@
 name: visora_ai
-description: Visora - Ultimate AI Video Studio
+description: Visora – Ultimate AI Video Studio
 publish_to: "none"
 version: 1.0.0+1
 
@@ -12,6 +12,7 @@ dependencies:
   http: ^1.2.2
   google_fonts: ^6.2.1
   lottie: ^3.1.2
+  blur: ^4.0.0
 
 dev_dependencies:
   flutter_test:
@@ -22,3 +23,9 @@ flutter:
   assets:
     - assets/lottie/loading.json
     - assets/lottie/done.json
+    - assets/logo/visora_logo.png
+    - assets/logo/visora_logo_splash.png
+    - assets/logo/visora_logo_white.png
+    - assets/logo/visora_logo_dark.png
+    - assets/logo/visora_full_text.png
+    - assets/logo/visora_brand_banner.png

@@ -1,0 +1,391 @@
+// lib/screens/assistant_screen.dart
+import 'dart:async';
+import 'dart:math';
+import 'dart:ui';
+import 'package:blur/blur.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:lottie/lottie.dart';
+
+typedef UseScriptCallback = void Function(String script);
+
+class AssistantScreen extends StatefulWidget {
+  final UseScriptCallback? onUseScript; // agar home me directly bhejna ho toh pass karo
+
+  const AssistantScreen({Key? key, this.onUseScript}) : super(key: key);
+
+  @override
+  State<AssistantScreen> createState() => _AssistantScreenState();
+}
+
+class _AssistantScreenState extends State<AssistantScreen> with TickerProviderStateMixin {
+  final TextEditingController _inputCtrl = TextEditingController();
+  final ScrollController _scroll = ScrollController();
+  bool _isGenerating = false;
+  String _selectedTone = 'Motivational';
+  List<Map<String, String>> _messages = []; // {role: 'user'|'assistant', text: '...'}
+  List<String> _recentPrompts = [];
+  List<String> _templates = [
+    'Short motivational hook (5-10s)',
+    'YouTube short script (15s)',
+    'Instagram caption + hashtags',
+    'Product ad – 30s script',
+    'Explainer: 60s step-by-step'
+  ];
+  late AnimationController _bgAnim;
+  late Animation<double> _bgAnimValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _bgAnim = AnimationController(vsync: this, duration: const Duration(seconds: 12))..repeat(reverse: true);
+    _bgAnimValue = Tween<double>(begin: -0.3, end: 0.3).animate(CurvedAnimation(parent: _bgAnim, curve: Curves.easeInOut));
+    // welcome message
+    _messages.add({'role': 'assistant', 'text': 'Namaste! Main Visora Assistant hoon — batao, aaj kaisa video banana hai?'});
+  }
+
+  @override
+  void dispose() {
+    _inputCtrl.dispose();
+    _scroll.dispose();
+    _bgAnim.dispose();
+    super.dispose();
+  }
+
+  Future<void> _generate(String prompt) async {
+    if (prompt.trim().isEmpty) {
+      _showSnack('Pehle prompt type karo ya template select karo.');
+      return;
+    }
+
+    setState(() {
+      _isGenerating = true;
+      _messages.add({'role': 'user', 'text': prompt});
+      _recentPrompts.insert(0, prompt);
+      if (_recentPrompts.length > 20) _recentPrompts.removeLast();
+    });
+    _autoScroll();
+
+    // Simulate "thinking" / API call
+    await Future.delayed(const Duration(milliseconds: 800));
+    // show loader in assistant
+    setState(() => _messages.add({'role': 'assistant', 'text': '<generating>'}));
+    _autoScroll();
+
+    // simulate generation complexity based on tone + random
+    final rand = Random();
+    final baseResponses = [
+      'Shuruaat ke liye ek strong hook dunga: ',
+      'Yeh script 3 scenes me banti hai: ',
+      'Caption idea: ',
+      'Full short script ready hai — bas thoda editing chahiye: '
+    ];
+    await Future.delayed(Duration(milliseconds: 1200 + rand.nextInt(1200)));
+
+    // build a fake response tuned by tone
+    final tail = _buildFakeScript(prompt, _selectedTone);
+    // replace last '<generating>' message
+    setState(() {
+      final idx = _messages.lastIndexWhere((m) => m['text'] == '<generating>');
+      if (idx >= 0) _messages[idx] = {'role': 'assistant', 'text': tail};
+      _isGenerating = false;
+    });
+    _autoScroll();
+  }
+
+  String _buildFakeScript(String prompt, String tone) {
+    // This function builds a multi-line generated script sample (placeholder).
+    final lines = <String>[];
+    final rnd = Random();
+    lines.add('Tone: $tone');
+    lines.add('Prompt: ${prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt}');
+    lines.add('');
+    if (tone.toLowerCase().contains('motiv')) {
+      lines.add('1) Hook (0-5s): "Aapke sapne ab sach ho sakte hain."');
+      lines.add('2) Middle (6-25s): Problem → Solution → AI demo.');
+      lines.add('3) CTA (26-30s): "Download Visora aur aaj hi try karo."');
+    } else if (tone.toLowerCase().contains('fun')) {
+      lines.add('1) Hook: "Are bhai, yeh dekho kya hota hai!"');
+      lines.add('2) Middle: Quick jokes + funny caption overlay.');
+      lines.add('3) CTA: "Share karo agar hasaa ho!"');
+    } else if (tone.toLowerCase().contains('formal')) {
+      lines.add('1) Opening: Short professional statement.');
+      lines.add('2) Body: Key features aur benefits (bullet style).');
+      lines.add('3) Close: Contact / Website mention.');
+    } else {
+      // friendly / default
+      lines.add('1) Hook: "Ek chhota sa idea — bada impact."');
+      lines.add('2) Body: Story + emotional connect.');
+      lines.add('3) CTA: "Try Visora - link in bio"');
+    }
+    // add some randomized hashtags if caption template
+    if (prompt.toLowerCase().contains('caption') || prompt.toLowerCase().contains('hashtag')) {
+      lines.add('');
+      lines.add('#AI #Visora #VideoMaker #MadeWithAI');
+    }
+    // add a small signature
+    lines.add('');
+    lines.add('— Generated by Visora Assistant • ${DateTime.now().year}');
+    return lines.join('\n');
+  }
+
+  void _autoScroll() {
+    Future.delayed(const Duration(milliseconds: 120), () {
+      if (_scroll.hasClients) _scroll.animateTo(_scroll.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    });
+  }
+
+  void _showSnack(String s) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s)));
+
+  Widget _animatedBackground() {
+    return AnimatedBuilder(
+      animation: _bgAnimValue,
+      builder: (context, child) {
+        final shift = _bgAnimValue.value;
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment(-1.0 + shift, -0.5 - shift),
+              end: Alignment(1.0 - shift, 0.5 + shift),
+              colors: [Color(0xFF833AB4), Color(0xFFFF5E62), Color(0xFFFCCF31)],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _topBar() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8),
+        child: Row(
+          children: [
+            Text('Visora Assistant', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700)),
+            const Spacer(),
+            IconButton(onPressed: () => _showSnack('Assistant settings (future)'), icon: const Icon(Icons.settings, color: Colors.white)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _toneSelector() {
+    final tones = ['Motivational', 'Friendly', 'Funny', 'Formal'];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14.0),
+      child: Wrap(
+        spacing: 8,
+        children: tones.map((t) {
+          final sel = t == _selectedTone;
+          return ChoiceChip(
+            label: Text(t),
+            selected: sel,
+            onSelected: (_) => setState(() => _selectedTone = t),
+            selectedColor: Colors.deepPurpleAccent,
+            backgroundColor: Colors.white10,
+            labelStyle: const TextStyle(color: Colors.white),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _templatesRow() {
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _templates.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final t = _templates[i];
+          return ElevatedButton(
+            onPressed: () {
+              _inputCtrl.text = t;
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.white10, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            child: Text(t, style: const TextStyle(color: Colors.white)),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _chatList() {
+    return ListView.builder(
+      controller: _scroll,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      itemCount: _messages.length,
+      itemBuilder: (context, i) {
+        final m = _messages[i];
+        final isUser = m['role'] == 'user';
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              if (!isUser) CircleAvatar(radius: 18, backgroundColor: Colors.white12, child: Lottie.asset('assets/lottie/loading.json', width: 36, height: 36, repeat: true)),
+              if (!isUser) const SizedBox(width: 8),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isUser ? Colors.deepPurpleAccent.withOpacity(0.9) : Colors.white10,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: SelectableText(m['text']!, style: TextStyle(color: isUser ? Colors.white : Colors.white70)),
+                ),
+              ),
+              if (isUser) const SizedBox(width: 8),
+              if (isUser) CircleAvatar(radius: 18, backgroundColor: Colors.pinkAccent, child: const Icon(Icons.person, color: Colors.white)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _inputBar() {
+    return Blur(
+      blur: 6,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.03), borderRadius: BorderRadius.circular(12)),
+        child: Row(
+          children: [
+            IconButton(onPressed: () => _showSnack('Open voice input (future)'), icon: const Icon(Icons.mic, color: Colors.white70)),
+            Expanded(
+              child: TextField(
+                controller: _inputCtrl,
+                style: const TextStyle(color: Colors.white),
+                minLines: 1,
+                maxLines: 4,
+                decoration: const InputDecoration(border: InputBorder.none, hintText: 'Type prompt or choose template...', hintStyle: TextStyle(color: Colors.white54)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Generate with short tap, long press for advanced options (later)
+            GestureDetector(
+              onTap: () => _generate(_inputCtrl.text.trim()),
+              onLongPress: () => _showAdvancedAssistantOptions(),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.purple.shade400, Colors.pink.shade300]), borderRadius: BorderRadius.circular(12)),
+                child: _isGenerating ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.flash_on, color: Colors.white),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAdvancedAssistantOptions() {
+    showModalBottomSheet(
+      backgroundColor: Colors.transparent,
+      context: context,
+      builder: (_) {
+        return Blur(
+          blur: 8,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: const Color(0xFF0F0F12), borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text('Advanced Options', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 16)),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(Icons.format_size),
+                title: const Text('Create longer script (60s+)'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _inputCtrl.text = '${_inputCtrl.text} (Make this a 60s+ script)';
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.language),
+                title: const Text('Make it bilingual (Hindi + English)'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _inputCtrl.text = '${_inputCtrl.text} (Make it bilingual: Hindi + English)';
+                },
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Done'))
+            ]),
+          ),
+        );
+      },
+    );
+  }
+
+  // helper for message action: copy / use as script / share / save
+  void _messageActions(String text) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => Container(
+        padding: const EdgeInsets.all(12),
+        child: Wrap(children: [
+          ListTile(leading: const Icon(Icons.copy), title: const Text('Copy'), onTap: () { Navigator.pop(context); Clipboard.setData(ClipboardData(text: text)); _showSnack('Copied'); }),
+          ListTile(leading: const Icon(Icons.check_circle), title: const Text('Use as Script'), onTap: () { Navigator.pop(context); widget.onUseScript?.call(text); _showSnack('Used as script (sent to Home)'); }),
+          ListTile(leading: const Icon(Icons.save), title: const Text('Save Draft'), onTap: () { Navigator.pop(context); _showSnack('Saved to drafts (placeholder)'); }),
+          ListTile(leading: const Icon(Icons.share), title: const Text('Share'), onTap: () { Navigator.pop(context); _showSnack('Share dialog (placeholder)'); }),
+        ]),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(children: [
+        _animatedBackground(),
+        SafeArea(child: Column(children: [
+          _topBar(),
+          const SizedBox(height: 6),
+          _toneSelector(),
+          const SizedBox(height: 8),
+          _templatesRow(),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.25),
+                    child: Column(
+                      children: [
+                        Expanded(child: _chatList()),
+                        Padding(padding: const EdgeInsets.all(8.0), child: _inputBar()),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ])),
+        // quick floating assistant avatar
+        Positioned(
+          right: 18,
+          bottom: 120,
+          child: GestureDetector(
+            onTap: () => _showSnack('Assistant quick actions (future)'),
+            child: CircleAvatar(
+              radius: 30,
+              backgroundColor: Colors.deepPurpleAccent,
+              child: Lottie.asset('assets/lottie/loading.json', width: 44, height: 44, repeat: true),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+}
