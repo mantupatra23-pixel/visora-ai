@@ -18,10 +18,13 @@ jobs:
       with:
         flutter-version: '3.19.6'
 
-    - name: Create Android Folder (Auto)
+    - name: Recreate Android Folder (valid package name)
       run: |
-        flutter create .
-        echo "✅ Android folder recreated automatically on cloud."
+        rm -rf android
+        flutter create --org com.visora visora_ai
+        mv visora_ai/android ./android
+        rm -rf visora_ai
+        echo "✅ Android folder recreated successfully with visora_ai package."
 
     - name: Flutter pub get
       run: flutter pub get
