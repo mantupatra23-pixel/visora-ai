@@ -1,9 +1,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.visora.ai">
+
     <application
         android:label="Visora AI"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        
+        <!-- 👇 Ye line add karni zaroori hai for Flutter v2 embedding -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -17,4 +24,5 @@
             </intent-filter>
         </activity>
     </application>
+
 </manifest>
