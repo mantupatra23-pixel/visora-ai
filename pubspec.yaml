@@ -1,17 +1,17 @@
 name: visora_ai
 description: Visora - Ultimate AI Video Studio
-publish_to: 'none'
+publish_to: "none"
 version: 1.0.0+1
 
 environment:
-  sdk: ">=2.18.0 <4.0.0"
+  sdk: ">=3.3.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  http: ^0.13.6
-  lottie: ^2.3.2
-  google_fonts: ^6.0.0
+  http: ^1.2.2
+  google_fonts: ^6.2.1
+  lottie: ^3.1.2
 
 dev_dependencies:
   flutter_test:
@@ -19,7 +19,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
   assets:
     - assets/lottie/loading.json
     - assets/lottie/done.json
