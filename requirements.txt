@@ -13,6 +13,7 @@ openai
 requests
 numpy
 Pillow
+textblob  # 👈 Added for emotion & tone analysis
 
 # --- Cloud Integration ---
 firebase-admin
