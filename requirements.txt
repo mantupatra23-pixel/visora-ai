@@ -1,13 +1,27 @@
+# --- Core Flask Framework ---
 Flask
-Flask-SQLAlchemy
 Flask-Cors
+Flask-SQLAlchemy
+
+# --- Auth / JWT ---
 PyJWT
+
+# --- AI / Voice / Video ---
 moviepy
 gTTS
+openai
 requests
+numpy
+Pillow
+
+# --- Cloud Integration ---
+firebase-admin
 boto3
 google-cloud-storage
-firebase-admin
 python-dotenv
+
+# --- Payment Gateways ---
 razorpay
+
+# --- Server / Deployment ---
 gunicorn

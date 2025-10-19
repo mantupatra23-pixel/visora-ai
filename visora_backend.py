@@ -889,6 +889,780 @@ atexit.register(on_exit)
 
 print("✅ Visora Backend Part 3 Loaded")
 
+# -------------------- 3-Layer Voice System (ElevenLabs + OpenAI + gTTS) --------------------
+import base64, requests, openai
+
+ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "")
+ELEVEN_VOICE_ID = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+openai.api_key = OPENAI_API_KEY
+
+# Character → Voice Map
+CHARACTER_VOICES = {
+    "C1": {"type": "male", "voice": "Adam"},
+    "C2": {"type": "female", "voice": "Rachel"},
+    "C3": {"type": "child", "voice": "Charlie"},
+    "C4": {"type": "old", "voice": "George"},
+}
+
+def generate_character_voice(character_tag, text):
+    """
+    Generate cinematic voice per character with fallback (ElevenLabs → OpenAI → gTTS)
+    """
+    if not text.strip():
+        return None
+
+    voice_data = CHARACTER_VOICES.get(character_tag, {"type": "neutral", "voice": "Rachel"})
+    voice_type = voice_data["type"]
+    prefix = f"{character_tag}_{voice_type}"
+
+    out_dir = UPLOAD_FOLDER / "ai_voices"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_file = out_dir / f"{prefix}_{uuid.uuid4().hex}.mp3"
+
+    # 1️⃣ ElevenLabs Layer
+    if ELEVEN_API_KEY:
+        try:
+            voice_id = {
+                "male": "pNInz6obpgDQGcFmaJgB",
+                "female": "21m00Tcm4TlvDq8ikWAM",
+                "child": "EXAVITQu4vr4xnSDxMaL",
+                "old": "TxGEqnHWrfWFTfGW9XjX",
+            }.get(voice_type, ELEVEN_VOICE_ID)
+
+            url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+            headers = {
+                "xi-api-key": ELEVEN_API_KEY,
+                "Accept": "audio/mpeg",
+                "Content-Type": "application/json"
+            }
+            payload = {"text": text, "model_id": "eleven_multilingual_v2"}
+            r = requests.post(url, headers=headers, json=payload, timeout=60)
+            if r.status_code == 200:
+                with open(out_file, "wb") as f:
+                    f.write(r.content)
+                log.info(f"🎙️ ElevenLabs {voice_type} voice generated for {character_tag}")
+                return str(out_file)
+        except Exception as e:
+            log.warning("ElevenLabs voice failed: %s", e)
+
+    # 2️⃣ OpenAI Layer
+    if OPENAI_API_KEY:
+        try:
+            response = openai.audio.speech.create(
+                model="gpt-4o-mini-tts",
+                voice="alloy" if voice_type in ["male", "old"] else "verse",
+                input=text
+            )
+            with open(out_file, "wb") as f:
+                f.write(response.audio)
+            log.info(f"🧩 OpenAI TTS generated for {character_tag} ({voice_type})")
+            return str(out_file)
+        except Exception as e:
+            log.warning("OpenAI TTS failed: %s", e)
+
+    # 3️⃣ gTTS Fallback Layer
+    try:
+        from gtts import gTTS
+        gTTS(text, lang="hi").save(str(out_file))
+        log.info(f"🔊 gTTS fallback voice generated for {character_tag}")
+        return str(out_file)
+    except Exception as e:
+        log.warning("gTTS fallback failed: %s", e)
+    return None
+
+# -------------------- Auto Character Voice Detection System --------------------
+import re
+
+def detect_characters_from_script(script_text: str) -> list:
+    """
+    Parse script lines and auto-assign voice type based on names / tone / gender hints.
+    """
+    lines = script_text.splitlines()
+    detected = []
+    voice_types = ["male", "female", "child", "old"]
+    assigned = {}
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        # Try to detect name: "Aman: Hello"
+        match = re.match(r"^([A-Za-z]+):\s*(.*)", line)
+        if match:
+            name, text = match.groups()
+        else:
+            # Default fallback
+            name, text = "Unknown", line
+
+        # Assign voice if not already
+        if name not in assigned:
+            if any(x in name.lower() for x in ["riya", "anita", "sita", "she", "her"]):
+                assigned[name] = "female"
+            elif any(x in name.lower() for x in ["kid", "child", "boy", "girl"]):
+                assigned[name] = "child"
+            elif any(x in name.lower() for x in ["grand", "old", "baba", "dada", "amma"]):
+                assigned[name] = "old"
+            else:
+                assigned[name] = "male"
+
+        detected.append({
+            "character": name,
+            "voice_type": assigned[name],
+            "text": text
+        })
+
+    log.info(f"🧠 Auto detected characters: {json.dumps(assigned)}")
+    return detected
+
+
+def process_script_auto(script_text: str):
+    """
+    Automatically process script → detect characters → generate voice per line.
+    Returns list of generated voice file paths.
+    """
+    segments = detect_characters_from_script(script_text)
+    voice_files = []
+    for seg in segments:
+        voice_path = generate_character_voice(seg["character"], seg["text"])
+        if voice_path:
+            voice_files.append(voice_path)
+    return voice_files
+
+# -------------------- Auto Avatar Fetcher + Character Visual Scene Builder --------------------
+import urllib.parse
+
+UNSPLASH_API_KEY = os.getenv("UNSPLASH_API_KEY", "")
+UNSPLASH_FALLBACKS = {
+    "male": "https://images.unsplash.com/photo-1603415526960-f7e0328c63b1",
+    "female": "https://images.unsplash.com/photo-1534528741775-53994a69daeb",
+    "child": "https://images.unsplash.com/photo-1503457574463-6b2bca43b5cb",
+    "old": "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e"
+}
+
+def fetch_avatar_for_character(name: str, voice_type: str) -> str:
+    """
+    Fetch an avatar image for given character using Unsplash API or fallback.
+    """
+    try:
+        query = urllib.parse.quote_plus(name)
+        if UNSPLASH_API_KEY:
+            url = f"https://api.unsplash.com/search/photos?query={query}&client_id={UNSPLASH_API_KEY}&orientation=squarish&per_page=1"
+            r = requests.get(url, timeout=10)
+            if r.status_code == 200:
+                data = r.json()
+                if data["results"]:
+                    return data["results"][0]["urls"]["regular"]
+        return UNSPLASH_FALLBACKS.get(voice_type, UNSPLASH_FALLBACKS["male"])
+    except Exception as e:
+        log.warning(f"Avatar fetch failed for {name}: {e}")
+        return UNSPLASH_FALLBACKS.get(voice_type, UNSPLASH_FALLBACKS["male"])
+
+
+def build_cinematic_scenes(script_text: str):
+    """
+    Build cinematic scenes with avatar + voice per line.
+    Returns (image_urls, voice_files)
+    """
+    segments = detect_characters_from_script(script_text)
+    image_urls = []
+    voice_files = []
+
+    for seg in segments:
+        name = seg["character"]
+        voice_type = seg["voice_type"]
+        text = seg["text"]
+        avatar_url = fetch_avatar_for_character(name, voice_type)
+        image_urls.append(avatar_url)
+
+        voice_path = generate_character_voice(seg["character"], text)
+        if voice_path:
+            voice_files.append(voice_path)
+
+        log.info(f"🎭 Scene built for {name} ({voice_type}) → voice: {voice_path}, avatar: {avatar_url}")
+
+    return image_urls, voice_files
+
+# -------------------- Emotion-Based Cinematic Tone Enhancer --------------------
+import textblob
+from moviepy.editor import vfx
+
+def analyze_emotion_from_text(text: str) -> str:
+    """
+    Detect emotion (happy, sad, angry, excited) from text using polarity.
+    """
+    try:
+        blob = textblob.TextBlob(text)
+        polarity = blob.sentiment.polarity
+        if polarity > 0.5:
+            return "excited"
+        elif polarity > 0.1:
+            return "happy"
+        elif polarity < -0.4:
+            return "angry"
+        elif polarity < 0:
+            return "sad"
+        else:
+            return "neutral"
+    except Exception as e:
+        log.warning(f"Emotion detection failed: {e}")
+        return "neutral"
+
+
+def apply_emotion_filter(clip, emotion: str):
+    """
+    Apply color tone, zoom, and brightness based on emotion.
+    """
+    try:
+        if emotion == "happy":
+            clip = clip.fx(vfx.colorx, 1.2)  # brighter
+        elif emotion == "excited":
+            clip = clip.fx(vfx.colorx, 1.4).fx(vfx.speedx, 1.1)
+        elif emotion == "sad":
+            clip = clip.fx(vfx.colorx, 0.7).fx(vfx.lum_contrast, lum=20, contrast=40)
+        elif emotion == "angry":
+            clip = clip.fx(vfx.colorx, 0.9).fx(vfx.lum_contrast, lum=-30, contrast=90)
+        else:
+            clip = clip.fx(vfx.colorx, 1.0)
+        return clip
+    except Exception as e:
+        log.warning(f"Emotion filter failed: {e}")
+        return clip
+
+
+def build_emotion_cinematic_video(script_text: str):
+    """
+    Combine emotion detection + avatar + voice to build cinematic story.
+    """
+    segments = detect_characters_from_script(script_text)
+    clips = []
+
+    for seg in segments:
+        name = seg["character"]
+        voice_type = seg["voice_type"]
+        text = seg["text"]
+        emotion = analyze_emotion_from_text(text)
+        avatar_url = fetch_avatar_for_character(name, voice_type)
+
+        log.info(f"🎬 Scene: {name} ({emotion}) → {text}")
+
+        try:
+            img_clip = ImageClip(avatar_url).resize((720, 1280))
+            voice_path = generate_character_voice(name, text)
+            audio_clip = AudioFileClip(voice_path)
+            dur = max(audio_clip.duration, 3)
+
+            # Apply cinematic + emotion filters
+            img_clip = cinematic_motion(img_clip)
+            img_clip = apply_emotion_filter(img_clip, emotion)
+
+            final_clip = img_clip.set_duration(dur).set_audio(audio_clip)
+            clips.append(final_clip)
+        except Exception as e:
+            log.warning(f"Scene generation failed for {name}: {e}")
+
+    if clips:
+        final_video = concatenate_videoclips(clips, method="compose")
+        output_path = OUTPUT_FOLDER / f"emotion_story_{uuid.uuid4().hex}.mp4"
+        final_video.write_videofile(str(output_path), fps=24)
+        log.info(f"🎞 Emotion-based cinematic video created: {output_path}")
+        return str(output_path)
+    else:
+        log.warning("⚠️ No clips generated.")
+        return None
+
+# -------------------- Cinematic Background Music AI System --------------------
+import random
+
+# Predefined emotion-based music library (You can expand it)
+CINEMATIC_MUSIC = {
+    "happy": [
+        "https://cdn.pixabay.com/audio/2023/03/28/audio_5a3c0b3d49.mp3",
+        "https://cdn.pixabay.com/audio/2023/03/14/audio_5e7b85e59d.mp3"
+    ],
+    "sad": [
+        "https://cdn.pixabay.com/audio/2023/02/07/audio_03d9d32b2a.mp3",
+        "https://cdn.pixabay.com/audio/2022/12/27/audio_d55aaf7b24.mp3"
+    ],
+    "excited": [
+        "https://cdn.pixabay.com/audio/2023/01/23/audio_6482b8f3b5.mp3",
+        "https://cdn.pixabay.com/audio/2023/03/15/audio_80a07d6a37.mp3"
+    ],
+    "angry": [
+        "https://cdn.pixabay.com/audio/2023/03/06/audio_14b8231a12.mp3",
+        "https://cdn.pixabay.com/audio/2023/01/17/audio_b14c97f203.mp3"
+    ],
+    "romantic": [
+        "https://cdn.pixabay.com/audio/2022/11/15/audio_d8579a3b47.mp3",
+        "https://cdn.pixabay.com/audio/2023/02/10/audio_2b47d16e21.mp3"
+    ],
+    "neutral": [
+        "https://cdn.pixabay.com/audio/2023/02/28/audio_04e4b09c56.mp3"
+    ]
+}
+
+def select_music_for_emotion(emotion: str) -> str:
+    """
+    Pick a random cinematic track for a given emotion.
+    """
+    try:
+        tracks = CINEMATIC_MUSIC.get(emotion, CINEMATIC_MUSIC["neutral"])
+        return random.choice(tracks)
+    except Exception as e:
+        log.warning(f"Music select failed for {emotion}: {e}")
+        return CINEMATIC_MUSIC["neutral"][0]
+
+
+def build_full_cinematic_story(script_text: str):
+    """
+    Combine emotion, avatar, voice, and background music into a cinematic movie.
+    """
+    segments = detect_characters_from_script(script_text)
+    clips = []
+
+    for seg in segments:
+        name = seg["character"]
+        voice_type = seg["voice_type"]
+        text = seg["text"]
+        emotion = analyze_emotion_from_text(text)
+        avatar_url = fetch_avatar_for_character(name, voice_type)
+        bg_music = select_music_for_emotion(emotion)
+
+        log.info(f"🎬 Scene: {name} ({emotion}) with music → {bg_music}")
+
+        try:
+            img_clip = ImageClip(avatar_url).resize((720, 1280))
+            voice_path = generate_character_voice(name, text)
+            audio_clip = AudioFileClip(voice_path)
+            bg_clip = AudioFileClip(bg_music).volumex(0.1)
+
+            dur = max(audio_clip.duration, 3)
+            img_clip = cinematic_motion(img_clip)
+            img_clip = apply_emotion_filter(img_clip, emotion)
+
+            # merge audio layers
+            final_audio = CompositeAudioClip([audio_clip, bg_clip])
+            final_clip = img_clip.set_duration(dur).set_audio(final_audio)
+            clips.append(final_clip)
+        except Exception as e:
+            log.warning(f"Scene music merge failed: {e}")
+
+    if clips:
+        final_video = concatenate_videoclips(clips, method="compose")
+        output_path = OUTPUT_FOLDER / f"cinematic_story_{uuid.uuid4().hex}.mp4"
+        final_video.write_videofile(str(output_path), fps=24)
+        log.info(f"🎞 Full cinematic story with background music: {output_path}")
+        return str(output_path)
+    else:
+        log.warning("⚠️ No scenes generated.")
+        return None
+
+# -------------------- AI Scene Composer System (Emotion-based Background Generator) --------------------
+import io
+from PIL import Image
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+
+def generate_scene_background(text: str, emotion: str) -> str:
+    """
+    Generate AI background image using emotion + text prompt.
+    Uses OpenAI Image API (DALL·E style fallback).
+    """
+    try:
+        if not OPENAI_API_KEY:
+            log.warning("⚠️ No OpenAI API key found, using fallback background.")
+            return random.choice([
+                "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e",
+                "https://images.unsplash.com/photo-1506744038136-46273834b3fb",
+                "https://images.unsplash.com/photo-1501785888041-af3ef285b470"
+            ])
+
+        headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
+        prompt = f"{emotion} cinematic background, 4K ultra realistic, movie lighting, {text}"
+        data = {"model": "gpt-image-1", "prompt": prompt, "size": "1024x1024"}
+        r = requests.post("https://api.openai.com/v1/images/generations", headers=headers, json=data)
+
+        if r.status_code == 200:
+            image_url = r.json()["data"][0]["url"]
+            log.info(f"🖼 AI background generated for {emotion}: {image_url}")
+            return image_url
+        else:
+            log.warning(f"AI background gen failed: {r.text}")
+            return random.choice([
+                "https://images.unsplash.com/photo-1519125323398-675f0ddb6308",
+                "https://images.unsplash.com/photo-1506744038136-46273834b3fb"
+            ])
+    except Exception as e:
+        log.warning(f"AI Scene Composer Error: {e}")
+        return "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e"
+
+
+def build_ai_composed_video(script_text: str):
+    """
+    Combine AI-generated backgrounds + voices + avatars + music → cinematic movie.
+    """
+    segments = detect_characters_from_script(script_text)
+    clips = []
+
+    for seg in segments:
+        name = seg["character"]
+        voice_type = seg["voice_type"]
+        text = seg["text"]
+        emotion = analyze_emotion_from_text(text)
+
+        bg_image = generate_scene_background(text, emotion)
+        avatar_url = fetch_avatar_for_character(name, voice_type)
+        voice_path = generate_character_voice(name, text)
+        bg_music = select_music_for_emotion(emotion)
+
+        log.info(f"🎬 Scene composed: {name} ({emotion}) | BG: {bg_image}")
+
+        try:
+            # Create layered composition: background + avatar + motion
+            bg_clip = ImageClip(bg_image).resize((720, 1280))
+            avatar_clip = ImageClip(avatar_url).resize((400, 400)).set_position(("center", "center"))
+            voice_clip = AudioFileClip(voice_path)
+            music_clip = AudioFileClip(bg_music).volumex(0.08)
+
+            dur = max(voice_clip.duration, 4)
+            bg_clip = apply_emotion_filter(bg_clip, emotion)
+            avatar_clip = cinematic_motion(avatar_clip)
+
+            scene = CompositeVideoClip([bg_clip, avatar_clip]).set_duration(dur)
+            final_audio = CompositeAudioClip([voice_clip, music_clip])
+            final_scene = scene.set_audio(final_audio)
+
+            clips.append(final_scene)
+        except Exception as e:
+            log.warning(f"Scene composition failed for {name}: {e}")
+
+    if clips:
+        final_video = concatenate_videoclips(clips, method="compose")
+        output_path = OUTPUT_FOLDER / f"ai_scene_story_{uuid.uuid4().hex}.mp4"
+        final_video.write_videofile(str(output_path), fps=24)
+        log.info(f"🎞 AI Scene Composed Cinematic Video: {output_path}")
+        return str(output_path)
+    else:
+        log.warning("⚠️ No scenes generated for AI composition.")
+        return None
+
+# -------------------- AI Lip-Sync System (D-ID integration + MoviePy fallback) --------------------
+import mimetypes
+
+DID_API_KEY = os.getenv("DID_API_KEY", "")
+DID_API_URL = os.getenv("DID_API_URL", "https://api.d-id.com")
+
+def call_did_talks(image_path: str, audio_path: Optional[str], script_text: Optional[str] = None):
+    """
+    Call D-ID 'talks' (or equivalent) endpoint to create a talking-head video.
+    Returns path to the saved mp4 or None on failure.
+
+    NOTE: D-ID API details may change — this is a template. Replace payload/endpoint
+    according to the D-ID docs if required.
+    """
+    if not DID_API_KEY:
+        return None
+
+    try:
+        headers = {"Authorization": f"Bearer {DID_API_KEY}"}
+        url = f"{DID_API_URL}/talks"
+
+        # Prepare files (image must be uploaded as multipart)
+        files = {}
+        data = {}
+
+        # image
+        mime, _ = mimetypes.guess_type(image_path)
+        files["image"] = ("avatar", open(image_path, "rb"), mime or "image/png")
+
+        # audio: if audio_path provided, attach; else we send script (text) for their TTS
+        if audio_path:
+            files["audio"] = ("audio", open(audio_path, "rb"), "audio/mpeg")
+        elif script_text:
+            data["script"] = script_text
+
+        # optional params: voice, crop, background etc. depends on D-ID API
+        data["driver"] = "d-id"  # placeholder
+        # send request
+        r = requests.post(url, headers=headers, data=data, files=files, timeout=120)
+
+        # close opened files
+        try:
+            files["image"][1].close()
+        except: pass
+        if "audio" in files:
+            try: files["audio"][1].close()
+            except: pass
+
+        if r.status_code in (200,201):
+            j = r.json()
+            # D-ID typically returns job id / video url — template below:
+            video_url = j.get("result_url") or j.get("video_url") or j.get("output", {}).get("video_url")
+            if video_url:
+                # download video to outputs
+                out = OUTPUT_DIR / f"lipsync_{uuid.uuid4().hex}.mp4"
+                resp = requests.get(video_url, stream=True, timeout=120)
+                if resp.status_code == 200:
+                    with open(out, "wb") as fh:
+                        for chunk in resp.iter_content(1024 * 32):
+                            fh.write(chunk)
+                    return str(out)
+        log.warning("D-ID call failed: %s %s", r.status_code, r.text)
+    except Exception as e:
+        log.exception("D-ID integration error: %s", e)
+    return None
+
+
+# --------- Fallback (MoviePy based approximate lip-sync) ----------
+def approximate_lipsync_moviepy(image_path: str, audio_path: str, out_path: str, mouth_overlay_path: Optional[str] = None):
+    """
+    Create an approximate lip-sync video by toggling a 'mouth open' overlay or
+    by applying small transforms synced to audio energy.
+    - image_path: base face image (local path or URL)
+    - audio_path: local audio path (mp3/wav)
+    - mouth_overlay_path: optional PNG with transparent mouth-open region to overlay
+    """
+    if not MOVIEPY_AVAILABLE:
+        raise RuntimeError("MoviePy not available for fallback lipsync")
+
+    # resolve image local path or download if URL
+    img_local = image_path
+    if str(image_path).startswith("http"):
+        tmp = UPLOAD_DIR / f"lipsync_img_{uuid.uuid4().hex}.png"
+        try:
+            r = requests.get(image_path, stream=True, timeout=30)
+            if r.status_code == 200:
+                with open(tmp, "wb") as fh:
+                    for chunk in r.iter_content(8192):
+                        fh.write(chunk)
+                img_local = str(tmp)
+        except Exception as e:
+            log.warning("Failed to download avatar image for lipsync: %s", e)
+            img_local = image_path  # let MoviePy try
+
+    audio_clip = AudioFileClip(_abs_path(audio_path))
+    duration = audio_clip.duration
+    base = ImageClip(_abs_path(img_local)).set_duration(duration).resize(width=720)
+
+    # sample short windows of audio and compute RMS -> use as open/close threshold
+    try:
+        arr = audio_clip.to_soundarray(nbytes=2, fps=22050)
+        # arr shape (N, channels); compute mono RMS per sample chunk
+        import numpy as np
+        mono = arr.mean(axis=1) if arr.ndim == 2 else arr
+        chunk = 22050 // 10  # 0.1s chunks
+        rms_vals = []
+        for i in range(0, len(mono), chunk):
+            seg = mono[i:i+chunk]
+            rms = (seg.astype(float) ** 2).mean() ** 0.5 if len(seg) > 0 else 0.0
+            rms_vals.append(rms)
+        # normalize
+        maxr = max(rms_vals) if rms_vals else 1.0
+        rms_norm = [v / maxr for v in rms_vals]
+    except Exception:
+        # fallback simple periodic toggle if sound analysis fails
+        rms_norm = [0.2 if (i % 2 == 0) else 0.8 for i in range(int(duration * 10))]
+
+    # build small subclips and overlay mouth_open when rms above threshold
+    subclips = []
+    t = 0.0
+    idx = 0
+    seg_dur = 0.1
+    while t < duration - 1e-6:
+        segt = min(seg_dur, duration - t)
+        rmsv = rms_norm[min(idx, len(rms_norm)-1)]
+        clip = base.subclip(t, t+segt)
+        # apply tiny scale/pulse to simulate speaking
+        if rmsv > 0.25:
+            clip = clip.fx(resize, 1.01).fx(lambda c: c)  # small zoom when speaking
+            # overlay mouth image if provided
+            if mouth_overlay_path and Path(mouth_overlay_path).exists():
+                mouth = (ImageClip(str(mouth_overlay_path))
+                         .set_duration(segt)
+                         .resize(width=int(base.w * 0.35))
+                         .set_position(("center", int(base.h*0.6))))
+                comp = CompositeVideoClip([clip, mouth])
+                subclips.append(comp)
+            else:
+                subclips.append(clip)
+        else:
+            # quiet frame
+            subclips.append(clip)
+        t += segt
+        idx += 1
+
+    final = concatenate_videoclips(subclips, method="compose")
+    final = final.set_audio(audio_clip)
+    # optional add bg music or filters here
+    bitrate = "2500k"
+    final.write_videofile(out_path, fps=24, codec="libx264", audio_codec="aac", bitrate=bitrate)
+    final.close()
+    audio_clip.close()
+    return out_path
+
+
+# ------------ Endpoint: /generate_lipsync ---------------
+@app.route("/generate_lipsync", methods=["POST"])
+def api_generate_lipsync():
+    """
+    Accepts multipart/form-data:
+      - image (character image URL or uploaded file)
+      - audio (uploaded audio file OR script+voice will be used)
+      - or script + character name (then backend will generate voice via generate_character_voice)
+      - use_did = true/false (prefer D-ID if available)
+    Returns: job_id and will create output under outputs/
+    """
+    user = request.form.get("user_email", "demo@visora.com")
+    use_did = request.form.get("use_did", "true").lower() == "true"
+
+    # prefer uploaded image
+    image_local = None
+    if "image" in request.files:
+        f = request.files["image"]
+        fname = secure_filename(f.filename)
+        dest = UPLOAD_DIR / "lipsync_images" / f"{uuid.uuid4().hex}_{fname}"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        f.save(dest)
+        image_local = str(dest)
+    else:
+        image_url = request.form.get("image_url")
+        image_local = image_url
+
+    audio_local = None
+    if "audio" in request.files:
+        f = request.files["audio"]
+        fname = secure_filename(f.filename)
+        dest = UPLOAD_DIR / "lipsync_audio" / f"{uuid.uuid4().hex}_{fname}"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        f.save(dest)
+        audio_local = str(dest)
+    else:
+        # script mode: generate TTS
+        script = request.form.get("script","")
+        character = request.form.get("character","C1")
+        if not script:
+            return jsonify({"error":"no audio or script provided"}), 400
+        audio_local = generate_character_voice(character, script)
+        if not audio_local:
+            return jsonify({"error":"tts failed"}), 500
+
+    # create DB record
+    v = Video(user_email=user, title=f"LipSync_{uuid.uuid4().hex[:6]}", status="queued", meta=json.dumps({"type":"lipsync"}))
+    db.session.add(v); db.session.commit()
+
+    job_id = uuid.uuid4().hex
+    render_jobs[job_id] = {"job_id": job_id, "status": "queued", "created_at": datetime.utcnow().isoformat()}
+    # try D-ID if requested
+    if use_did and DID_API_KEY:
+        try:
+            out = call_did_talks(image_local, audio_local, script_text=request.form.get("script"))
+            if out:
+                render_jobs[job_id]["status"] = "done"
+                render_jobs[job_id]["output"] = str(Path(out).relative_to(BASE_DIR))
+                # update DB
+                v.file_path = render_jobs[job_id]["output"]; v.status="done"; db.session.commit()
+                return jsonify({"job_id": job_id, "output": render_jobs[job_id]["output"]})
+        except Exception as e:
+            log.warning("D-ID attempt failed, falling back to local lip-sync: %s", e)
+
+    # fallback: local approximate lipsync
+    try:
+        out_abs = str(OUTPUT_DIR / f"lipsync_{uuid.uuid4().hex}.mp4")
+        approximate_lipsync_moviepy(image_local, audio_local, out_abs)
+        render_jobs[job_id]["status"] = "done"
+        render_jobs[job_id]["output"] = str(Path(out_abs).relative_to(BASE_DIR))
+        v.file_path = render_jobs[job_id]["output"]; v.status="done"; db.session.commit()
+        return jsonify({"job_id": job_id, "output": render_jobs[job_id]["output"]})
+    except Exception as e:
+        log.exception("Local lipsync failed: %s", e)
+        render_jobs[job_id]["status"] = "failed"; render_jobs[job_id]["error"] = str(e)
+        v.status = "failed"; db.session.commit()
+        return jsonify({"error":"lipsync_failed","details":str(e)}), 500
+
+# -------------------- Google Veo Cinematic Generator --------------------
+import base64
+
+GOOGLE_VEO_API_KEY = os.getenv("GOOGLE_VEO_API_KEY", "")
+
+def generate_cinematic_video(prompt: str, duration: int = 10):
+    """
+    Generate cinematic short video using Google Veo (if available)
+    Fallback: moviepy placeholder (color + text)
+    """
+    out_dir = OUTPUT_FOLDER
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"veo_{uuid.uuid4().hex}.mp4"
+
+    if GOOGLE_VEO_API_KEY:
+        try:
+            url = "https://generativelanguage.googleapis.com/v1beta/models/veo:generateVideo"
+            params = {"key": GOOGLE_VEO_API_KEY}
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "prompt": {"text": prompt},
+                "videoConfig": {"durationSeconds": duration, "aspectRatio": "16:9"},
+            }
+            r = requests.post(url, headers=headers, json=payload, params=params, timeout=120)
+            if r.status_code == 200:
+                data = r.json()
+                if "video" in data and "base64Data" in data["video"]:
+                    video_data = base64.b64decode(data["video"]["base64Data"])
+                    with open(out_path, "wb") as f:
+                        f.write(video_data)
+                    log.info(f"Google Veo cinematic video created: {out_path}")
+                    return str(out_path)
+                else:
+                    log.warning("Veo API response incomplete, fallbacking.")
+            else:
+                log.warning("Veo API error: %s", r.text)
+        except Exception as e:
+            log.exception("Google Veo generation failed: %s", e)
+
+    # fallback MoviePy cinematic placeholder
+    try:
+        from moviepy.editor import TextClip, ColorClip, CompositeVideoClip
+        text = TextClip(prompt, fontsize=50, color='white', bg_color=None, method='caption', size=(1280,720))
+        bg = ColorClip(size=(1280,720), color=(10,10,10)).set_duration(duration)
+        final = CompositeVideoClip([bg, text.set_position("center").set_duration(duration)])
+        final.write_videofile(str(out_path), fps=24, codec="libx264", audio=False)
+        final.close()
+        log.info(f"Fallback cinematic video created: {out_path}")
+        return str(out_path)
+    except Exception as e:
+        log.exception("Fallback cinematic video failed: %s", e)
+        return None
+
+
+@app.route("/generate_cinematic", methods=["POST"])
+def generate_cinematic():
+    """
+    JSON Example:
+      {
+        "user_email": "demo@visora.com",
+        "prompt": "A cinematic sunrise over the mountains with birds flying",
+        "duration": 10
+      }
+    """
+    data = request.get_json(force=True)
+    user_email = data.get("user_email", "demo@visora.com")
+    prompt = data.get("prompt", "")
+    duration = int(data.get("duration", 10))
+
+    if not prompt.strip():
+        return jsonify({"error": "prompt required"}), 400
+
+    output_path = generate_cinematic_video(prompt, duration)
+    if not output_path:
+        return jsonify({"error": "generation failed"}), 500
+
+    v = UserVideo(user_email=user_email, title=f"Cinematic_{uuid.uuid4().hex[:6]}",
+                  file_path=str(Path(output_path).relative_to(BASE_DIR)),
+                  status="done", meta_json=json.dumps({"prompt": prompt, "mode": "cinematic"}))
+    db.session.add(v)
+    db.session.commit()
+    return jsonify({"message": "cinematic video created", "file": v.file_path, "video_id": v.id})
+
 # -------------------- Requirements & .env template --------------------
 REQUIREMENTS_TXT = """
 Flask
