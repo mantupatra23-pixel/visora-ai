@@ -398,18 +398,23 @@ def worker_loop():
         except Empty:
             time.sleep(RENDER_WORKER_SLEEP)
             continue
+
         job_id = job.get("job_id")
         render_jobs[job_id]["status"] = "processing"
+
         try:
             images = job.get("images", [])
             audios = job.get("audios", [])
             bg = job.get("bg")
-            quality = job.get("quality","HD")
+            quality = job.get("quality", "HD")
             out_name = f"{job_id}.mp4"
             out_abs = str(OUTPUT_DIR / out_name)
-            render_images_with_audios(images, audios, out_abs, quality=quality, bg_music=bg)
+
+            # Run the render
+            render_images_with_audios(images, audios, out_abs, bg, quality)
             render_jobs[job_id]["status"] = "done"
-            render_jobs[job_id]["output"] = str(Path("outputs") / out_name)
+            render_jobs[job_id]["output"] = str(Path(out_abs).relative_to(BASE_DIR))
+
             # Save DB record if video record provided
             vid_id = job.get("video_db_id")
             if vid_id:
@@ -419,25 +424,28 @@ def worker_loop():
                         v.file_path = render_jobs[job_id]["output"]
                         v.status = "done"
                         db.session.commit()
-            log.info("Render job done: %s", job_id)
-           except Exception as e:
-        log.exception("Render failed for %s: %s", job_id, str(e))
-        render_jobs[job_id]["status"] = "failed"
-        render_jobs[job_id]["error"] = str(e)
-        # mark DB if present
-        vid_id = job.get("video_db_id")
-        if vid_id:
-            with app.app_context():
-                v = Video.query.get(vid_id)
-                if v:
-                    v.status = "failed"
-                    db.session.commit()
 
-    finally:
-        try:
-            render_queue.task_done()
+            log.info("Render job done: %s", job_id)
+
         except Exception as e:
-            log.warning(f"⚠️ Task cleanup failed: {e}")
+            log.exception("Render failed for %s: %s", job_id, str(e))
+            render_jobs[job_id]["status"] = "failed"
+            render_jobs[job_id]["error"] = str(e)
+
+            # mark DB if present
+            vid_id = job.get("video_db_id")
+            if vid_id:
+                with app.app_context():
+                    v = Video.query.get(vid_id)
+                    if v:
+                        v.status = "failed"
+                        db.session.commit()
+
+        finally:
+            try:
+                render_queue.task_done()
+            except Exception as e:
+                log.warning(f"⚠️ Task cleanup failed: {e}")
 
 # -------------------- API: generate_video --------------------
 @app.route("/generate_video", methods=["POST"])
