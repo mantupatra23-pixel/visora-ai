@@ -2277,7 +2277,6 @@ def generate_cinematic_video(prompt: str, duration: int = 10):
         final = CompositeVideoClip([bg, text.set_position("center").set_duration(duration)])
         final.write_videofile(str(out_path), fps=24, codec="libx264", audio=False)
         final.close()
-        log.info(f"Fallback cinematic video created: {out_path}")
         return str(out_path)
     except Exception as e:
         log.exception("Fallback cinematic video failed: %s", e)
@@ -2311,7 +2310,7 @@ def generate_cinematic():
                   status="done", meta_json=json.dumps({"prompt": prompt, "mode": "cinematic"}))
     db.session.add(v)
     db.session.commit()
-    return jsonify({"message": "cinematic video created", "file": v.file_path, "video_id": v.id}
+return jsonify({"message": "cinematic video created 🎬", "video_id": v.id})
 
 # =====================================================
 # 🎥 MULTI-SCENE CINEMATIC BACKGROUND TRANSITION ENGINE
