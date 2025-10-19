@@ -1,31 +1,30 @@
 # --- Core Flask Framework ---
-Flask
-Flask-Cors
-Flask-SQLAlchemy
+Flask==2.3.3
+Flask-Cors==4.0.0
+Flask-SQLAlchemy==3.0.5
 
 # --- Auth / JWT ---
-PyJWT
+PyJWT==2.8.0
 
 # --- AI / Voice / Video ---
 moviepy==1.0.3
-imageio==2.31.3
+imageio==2.31.1
 imageio-ffmpeg==0.4.9
-proglog==0.1.10
-gTTS
-openai
-requests
-numpy
-Pillow
-textblob  # 👈 Emotion & tone analysis
+gTTS==2.5.1
+openai==1.30.2
+requests==2.31.0
+numpy==1.26.4
+Pillow==9.5.0
+textblob==0.17.1
 
 # --- Cloud Integration ---
-firebase-admin
-boto3
-google-cloud-storage
-python-dotenv
+firebase-admin==6.4.0
+boto3==1.34.2
+google-cloud-storage==2.14.0
+python-dotenv==1.0.1
 
 # --- Payment Gateways ---
-razorpay
+razorpay==1.3.0
 
 # --- Server / Deployment ---
-gunicorn
+gunicorn==21.2.0
