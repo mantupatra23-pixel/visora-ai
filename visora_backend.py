@@ -1185,17 +1185,20 @@ def build_cinematic_scenes(script_text: str):
 
     return image_urls, voice_files
 
-# -------------------- Emotion-Based Cinematic Tone Enhancer --------------------
+# ---------------- Emotion-Based Cinematic Tone Enhancement ----------------
 import textblob
-from moviepy.editor import vfx
+from moviepy.editor import vfx, ImageClip, concatenate_videoclips, AudioFileClip
+from pathlib import Path
 
+# 💡 Detect Emotion from Script Text
 def analyze_emotion_from_text(text: str) -> str:
     """
-    Detect emotion (happy, sad, angry, excited) from text using polarity.
+    Detect emotion (happy, sad, angry, excited, neutral) from text using TextBlob.
     """
     try:
         blob = textblob.TextBlob(text)
         polarity = blob.sentiment.polarity
+
         if polarity > 0.5:
             return "excited"
         elif polarity > 0.1:
@@ -1211,19 +1214,20 @@ def analyze_emotion_from_text(text: str) -> str:
         return "neutral"
 
 
+# 🎨 Apply Emotion-Based Visual Filter
 def apply_emotion_filter(clip, emotion: str):
     """
-    Apply color tone, zoom, and brightness based on emotion.
+    Apply color tone, zoom, and brightness based on detected emotion.
     """
     try:
         if emotion == "happy":
-            clip = clip.fx(vfx.colorx, 1.2)  # brighter
+            clip = clip.fx(vfx.colorx, 1.2)
         elif emotion == "excited":
             clip = clip.fx(vfx.colorx, 1.4).fx(vfx.speedx, 1.1)
         elif emotion == "sad":
-            clip = clip.fx(vfx.colorx, 0.7).fx(vfx.lum_contrast, lum=20, contrast=40)
+            clip = clip.fx(vfx.colorx, 0.7).fx(vfx.lum_contrast, 0.8, 0.9, 128)
         elif emotion == "angry":
-            clip = clip.fx(vfx.colorx, 0.9).fx(vfx.lum_contrast, lum=-30, contrast=90)
+            clip = clip.fx(vfx.colorx, 0.9).fx(vfx.lum_contrast, 1.3, 1.2, 128)
         else:
             clip = clip.fx(vfx.colorx, 1.0)
         return clip
@@ -1232,9 +1236,10 @@ def apply_emotion_filter(clip, emotion: str):
         return clip
 
 
-def build_emotion_cinematic_video(script_text: str):
+# 🎬 Build Full Emotion-Cinematic Video
+def build_emotion_cinematic_video(script_text: str) -> str:
     """
-    Combine emotion detection + avatar + voice to build cinematic story.
+    Combine emotion detection + avatar + voice to build cinematic video.
     """
     segments = detect_characters_from_script(script_text)
     clips = []
@@ -1243,18 +1248,20 @@ def build_emotion_cinematic_video(script_text: str):
         name = seg["character"]
         voice_type = seg["voice_type"]
         text = seg["text"]
+
         emotion = analyze_emotion_from_text(text)
         avatar_url = fetch_avatar_for_character(name, voice_type)
 
-        log.info(f"🎬 Scene: {name} ({emotion}) → {text}")
+        log.info(f"🎞️ Scene: {name} ({emotion}) -> {text}")
 
         try:
+            # 🖼️ Create character clip + 🎤 voice
             img_clip = ImageClip(avatar_url).resize((720, 1280))
-            voice_path = generate_character_voice(name, text)
+            voice_path = generate_character_voice(name, voice_type, text)
             audio_clip = AudioFileClip(voice_path)
             dur = max(audio_clip.duration, 3)
 
-            # Apply cinematic + emotion filters
+            # 📸 Apply cinematic & emotion filters
             img_clip = cinematic_motion(img_clip)
             img_clip = apply_emotion_filter(img_clip, emotion)
 
@@ -1265,9 +1272,9 @@ def build_emotion_cinematic_video(script_text: str):
 
     if clips:
         final_video = concatenate_videoclips(clips, method="compose")
-        output_path = OUTPUT_FOLDER / f"emotion_story_{uuid.uuid4().hex}.mp4"
+        output_path = OUTPUT_FOLDER / f"emotion_story_{uuid.uuid4().hex[:8]}.mp4"
         final_video.write_videofile(str(output_path), fps=24)
-        log.info(f"🎞 Emotion-based cinematic video created: {output_path}")
+        log.info(f"✅ Emotion-based cinematic video created: {output_path}")
         return str(output_path)
     else:
         log.warning("⚠️ No clips generated.")
