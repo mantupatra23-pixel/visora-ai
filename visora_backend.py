@@ -1187,8 +1187,20 @@ def build_cinematic_scenes(script_text: str):
 
 # ---------------- Emotion-Based Cinematic Tone Enhancement ----------------
 import textblob
-from moviepy.editor import vfx, ImageClip, concatenate_videoclips, AudioFileClip
+from moviepy.editor import (
+    vfx, 
+    ImageClip, 
+    concatenate_videoclips, 
+    AudioFileClip
+)
 from pathlib import Path
+import uuid
+import logging as log
+
+# Make sure the output folder exists
+OUTPUT_FOLDER = Path("outputs")
+OUTPUT_FOLDER.mkdir(exist_ok=True)
+
 
 # 💡 Detect Emotion from Script Text
 def analyze_emotion_from_text(text: str) -> str:
@@ -1245,9 +1257,9 @@ def build_emotion_cinematic_video(script_text: str) -> str:
     clips = []
 
     for seg in segments:
-        name = seg["character"]
-        voice_type = seg["voice_type"]
-        text = seg["text"]
+        name = seg.get("character", "Unknown")
+        voice_type = seg.get("voice_type", "neutral")
+        text = seg.get("text", "")
 
         emotion = analyze_emotion_from_text(text)
         avatar_url = fetch_avatar_for_character(name, voice_type)
@@ -1261,7 +1273,7 @@ def build_emotion_cinematic_video(script_text: str) -> str:
             audio_clip = AudioFileClip(voice_path)
             dur = max(audio_clip.duration, 3)
 
-            # 📸 Apply cinematic & emotion filters
+            # 🎥 Apply cinematic & emotion filters
             img_clip = cinematic_motion(img_clip)
             img_clip = apply_emotion_filter(img_clip, emotion)
 
