@@ -7,9 +7,9 @@ Flask-SQLAlchemy==3.0.5
 PyJWT==2.8.0
 
 # --- AI / Voice / Video ---
-moviepy==1.0.0
-imageio==2.25.1
-imageio-ffmpeg==0.4.7
+moviepy==1.0.3
+imageio==2.31.1
+imageio-ffmpeg==0.4.9
 gTTS==2.5.1
 openai==1.30.2
 requests==2.31.0
@@ -28,3 +28,5 @@ razorpay==1.3.0
 
 # --- Server / Deployment ---
 gunicorn==21.2.0
+setuptools==68.0.0
+wheel==0.41.2
