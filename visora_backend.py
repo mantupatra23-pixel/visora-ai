@@ -180,45 +180,97 @@ def secure_name(name: str) -> str:
         return f"{base}_{uid}.{ext}"
     return f"{name}_{uid}"
 
-# ----------------------------------------------------------------------------
-# AUTH ENDPOINTS
-# ----------------------------------------------------------------------------
+# ====================== AUTH ENDPOINTS ======================
+
+from flask import request, jsonify
+import jwt, datetime
+from functools import wraps
+
+SECRET_KEY = "your_secret_key_here"
+
+# ---------------- JWT Helper Functions ----------------
+def token_create(email):
+    payload = {
+        "email": email,
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=3)
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+def token_verify(token):
+    try:
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        return decoded
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+
+# ---------------- REGISTER ----------------
 @app.route("/register", methods=["POST"])
 def register():
     data = request.get_json(force=True)
-    email, password = data.get("email"), data.get("password")
+    email = data.get("email")
+    password = data.get("password")
+    name = data.get("name", "User")
+
     if not email or not password:
         return jsonify({"error": "Missing credentials"}), 400
+
     if User.query.filter_by(email=email).first():
-        return jsonify({"error": "User already exists"}), 409
-    u = User(email=email, name=data.get("name"), password=password)
+        return jsonify({"error": "User already exists"}), 400
+
+    u = User(email=email, name=name, password=password)
     db.session.add(u)
     db.session.commit()
-    return jsonify({"message": "User registered", "token": token_create(email)})
 
+    token = token_create(email)
+    return jsonify({
+        "message": "User registered successfully ✅",
+        "token": token,
+        "user": {"email": u.email, "name": u.name}
+    }), 200
+
+
+# ---------------- LOGIN ----------------
 @app.route("/login", methods=["POST"])
 def login():
     data = request.get_json(force=True)
-    email, password = data.get("email"), data.get("password")
+    email = data.get("email")
+    password = data.get("password")
+
     u = User.query.filter_by(email=email).first()
     if not u or u.password != password:
         return jsonify({"error": "Invalid credentials"}), 401
-    return jsonify({"token": token_create(email), "user": {"email": u.email, "plan": u.plan, "credits": u.credits}})
 
+    token = token_create(email)
+    return jsonify({
+        "message": "Login successful 🔐",
+        "token": token,
+        "user": {"email": u.email, "name": u.name}
+    }), 200
+
+
+# ---------------- PROFILE ----------------
 @app.route("/profile", methods=["GET"])
 def profile():
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
     decoded = token_verify(token)
+
     if not decoded:
-        return jsonify({"error": "Invalid token"}), 401
+        return jsonify({"error": "Invalid or expired token"}), 401
+
     u = User.query.filter_by(email=decoded["email"]).first()
+    if not u:
+        return jsonify({"error": "User not found"}), 404
+
     return jsonify({
         "email": u.email,
         "name": u.name,
-        "plan": u.plan,
-        "credits": u.credits,
-        "country": u.country
-    })
+        "plan": getattr(u, "plan", "free"),
+        "credits": getattr(u, "credits", 100),
+        "country": getattr(u, "country", "Unknown")
+    }), 200
 
 # ----------------------------------------------------------------------------
 # INIT DATABASE
