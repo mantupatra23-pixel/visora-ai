@@ -8,6 +8,7 @@ PyJWT
 
 # --- AI / Voice / Video ---
 moviepy
+imageio[ffmpeg]   # ✅ Added for moviepy video export & ffmpeg support
 gTTS
 openai
 requests
