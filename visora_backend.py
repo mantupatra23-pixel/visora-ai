@@ -38,6 +38,55 @@ except Exception as e:
     print("⚠️ gTTS not available:", e)
     GTTS_AVAILABLE = False
 
+# ==============================================
+# 🎬 CINEMATIC VIDEO GENERATION MODULE (AI)
+# ==============================================
+from elevenlabs import generate, save
+from pydub import AudioSegment
+import random
+
+def generate_cinematic_video(prompt, duration=10):
+    try:
+        characters = ["male", "female", "child", "old"]
+        voice_type = random.choice(characters)
+        voice_map = {
+            "male": "21m00Tcm4TlvDq8ikWAM",
+            "female": "EXAVITQu4vr4xnSDxMaL",
+            "child": "TxGEqnHWrfWFTfGW9XjX",
+            "old": "ErXwobaYiN019PkySvjV"
+        }
+
+        voice_id = voice_map[voice_type]
+        voice_path = f"/tmp/{voice_type}_voice.mp3"
+
+        audio = generate(text=prompt, voice=voice_id, model="eleven_monolingual_v1")
+        save(audio, voice_path)
+
+        video_path = "/tmp/bg_cinematic.mp4"
+        os.system(f"ffmpeg -y -f lavfi -i color=c=black:s=1080x1920:d={duration} {video_path}")
+
+        bgm_path = "/tmp/bgm.mp3"
+        os.system(f"ffmpeg -y -i https://cdn.pixabay.com/audio/2023/03/01/audio_51c2a5d7b3.mp3 -ss 0 -t {duration} {bgm_path}")
+
+        voice = AudioSegment.from_file(voice_path)
+        bgm = AudioSegment.from_file(bgm_path).apply_gain(-10)
+        final_audio = bgm.overlay(voice)
+        final_audio.export("/tmp/final_audio.mp3", format="mp3")
+
+        final_output = "/tmp/final_output.mp4"
+        os.system("ffmpeg -y -i /tmp/bg_cinematic.mp4 -i /tmp/final_audio.mp3 -shortest /tmp/final_output.mp4")
+
+        return final_output
+    except Exception as e:
+        print("❌ Error generating cinematic video:", e)
+        return None
+
+# ==============================================
+# Wrapper to connect cinematic generator with API
+# ==============================================
+def build_ai_composed_video(script_text):
+    return generate_cinematic_video(script_text, 10)
+
 # ----------------------------------------------------------------------------
 # CONFIGURATION
 # ----------------------------------------------------------------------------
@@ -1172,6 +1221,476 @@ def build_emotion_cinematic_video(script_text: str):
         log.warning("⚠️ No clips generated.")
         return None
 
+# =========================
+# UNIVERSAL CHARACTER VISUAL ENGINE (UCVE)
+# =========================
+import os
+import uuid
+import tempfile
+import shutil
+import subprocess
+from typing import List, Tuple
+
+# --- Character models (avatar clips or placeholder images)
+# Replace avatar paths with your cloud URLs or uploads as needed.
+CHARACTER_MODELS = {
+    "man":     {"avatar":"assets/avatars/man_loop.mp4",     "voice":"male"},
+    "woman":   {"avatar":"assets/avatars/woman_loop.mp4",   "voice":"female"},
+    "child":   {"avatar":"assets/avatars/child_loop.mp4",   "voice":"child"},
+    "old_man": {"avatar":"assets/avatars/oldman_loop.mp4",  "voice":"old"},
+    "god":     {"avatar":"assets/avatars/god_loop.mp4",     "voice":"divine"},
+    "tiger":   {"avatar":"assets/avatars/tiger_loop.mp4",   "voice":"tiger"},
+    "monkey":  {"avatar":"assets/avatars/monkey_loop.mp4",  "voice":"monkey"},
+    "lion":    {"avatar":"assets/avatars/lion_loop.mp4",    "voice":"lion"},
+    "elephant":{"avatar":"assets/avatars/elephant_loop.mp4","voice":"elephant"},
+    "fox":     {"avatar":"assets/avatars/fox_loop.mp4",     "voice":"fox"},
+    "robot":   {"avatar":"assets/avatars/robot_loop.mp4",   "voice":"robot"},
+    "alien":   {"avatar":"assets/avatars/alien_loop.mp4",   "voice":"alien"},
+    "narrator":{"avatar":"assets/avatars/narrator_loop.mp4","voice":"male"},
+}
+
+# ============================================
+# 🤖 AUTO CHARACTER SCENE GENERATOR (ACSG)
+# ============================================
+
+import re
+import random
+
+def auto_detect_character(line: str) -> str:
+    """
+    Automatically detect speaker character type based on the text content.
+    """
+    line = line.lower()
+    if any(word in line for word in ["roar", "hunt", "jungle", "sher", "tiger"]):
+        return "tiger"
+    elif any(word in line for word in ["bandar", "monkey", "tree", "jump"]):
+        return "monkey"
+    elif any(word in line for word in ["raj", "king", "yudh", "queen", "mahal"]):
+        return random.choice(["man", "woman"])
+    elif any(word in line for word in ["dev", "god", "bhagwan", "temple", "light"]):
+        return "god"
+    elif any(word in line for word in ["child", "baby", "bacha", "school"]):
+        return "child"
+    elif any(word in line for word in ["woman", "girl", "ladki", "maa"]):
+        return "woman"
+    elif any(word in line for word in ["old", "baba", "grandpa", "dada", "nana"]):
+        return "old_man"
+    elif any(word in line for word in ["machine", "robot", "ai", "system"]):
+        return "robot"
+    elif any(word in line for word in ["alien", "space", "planet", "mars"]):
+        return "alien"
+    elif any(word in line for word in ["elephant", "haathi", "trunk"]):
+        return "elephant"
+    elif any(word in line for word in ["lion", "roar", "king of jungle"]):
+        return "lion"
+    elif any(word in line for word in ["fox", "chalak", "smart"]):
+        return "fox"
+    else:
+        return random.choice(["man", "woman"])  # Default fallback
+
+
+def generate_auto_scene_script(script_text: str):
+    """
+    Automatically generate dialogue mapping for all detected characters.
+    Example Input:
+        "Jungle me ek sher rehta tha. Usne bola main jungle ka raja hoon!"
+    Output:
+        [
+            ("tiger", "Main jungle ka raja hoon!"),
+            ("monkey", "Mujhe bhi kursi chahiye!")
+        ]
+    """
+    sentences = re.split(r'[.!?]', script_text)
+    dialogues = []
+
+    for line in sentences:
+        line = line.strip()
+        if not line:
+            continue
+        character = auto_detect_character(line)
+        dialogues.append((character, line))
+
+    print(f"🎭 Auto-detected characters in script: {[c for c, _ in dialogues]}")
+    return dialogues
+
+# ============================================
+# 🌈 THEME-BASED CINEMATIC BACKGROUND SYSTEM
+# ============================================
+
+def detect_story_theme(script_text: str) -> str:
+    """
+    Detects the main theme of the story automatically.
+    e.g. jungle, space, temple, war, city, etc.
+    """
+    text = script_text.lower()
+    if any(word in text for word in ["jungle", "forest", "animal", "sher", "bandar"]):
+        return "jungle"
+    elif any(word in text for word in ["space", "planet", "alien", "mars", "galaxy"]):
+        return "space"
+    elif any(word in text for word in ["temple", "god", "dev", "bhagwan", "shakti"]):
+        return "temple"
+    elif any(word in text for word in ["battle", "fight", "yudh", "war", "king"]):
+        return "war"
+    elif any(word in text for word in ["love", "romantic", "heart", "feeling", "prem"]):
+        return "romantic"
+    elif any(word in text for word in ["city", "street", "modern", "office", "work"]):
+        return "city"
+    else:
+        return "generic"
+
+
+def get_theme_background(theme: str) -> str:
+    """
+    Returns a suitable cinematic background video URL based on the detected theme.
+    """
+    backgrounds = {
+        "jungle": [
+            "https://cdn.pixabay.com/video/2023/03/15/15632-432987.mp4",
+            "https://cdn.pixabay.com/video/2022/12/09/14422-412987.mp4"
+        ],
+        "space": [
+            "https://cdn.pixabay.com/video/2023/02/14/15222-422987.mp4",
+            "https://cdn.pixabay.com/video/2023/05/05/16542-435555.mp4"
+        ],
+        "temple": [
+            "https://cdn.pixabay.com/video/2023/01/25/14922-422987.mp4",
+            "https://cdn.pixabay.com/video/2023/07/11/17222-441444.mp4"
+        ],
+        "war": [
+            "https://cdn.pixabay.com/video/2023/04/04/16122-433333.mp4",
+            "https://cdn.pixabay.com/video/2022/11/20/14122-411111.mp4"
+        ],
+        "romantic": [
+            "https://cdn.pixabay.com/video/2023/03/28/15742-432555.mp4",
+            "https://cdn.pixabay.com/video/2023/06/08/17022-439222.mp4"
+        ],
+        "city": [
+            "https://cdn.pixabay.com/video/2023/05/12/16632-437777.mp4",
+            "https://cdn.pixabay.com/video/2022/10/19/13922-410444.mp4"
+        ],
+        "generic": [
+            "https://cdn.pixabay.com/video/2023/07/20/17333-443333.mp4",
+            "https://cdn.pixabay.com/video/2023/03/01/15522-431999.mp4"
+        ]
+    }
+    return random.choice(backgrounds.get(theme, backgrounds["generic"]))
+
+
+def add_theme_based_background(script_text: str, audio_path: str) -> str:
+    """
+    Combines detected theme background with the final mixed audio.
+    """
+    theme = detect_story_theme(script_text)
+    bg_video = get_theme_background(theme)
+    final_theme_video = f"/tmp/final_theme_scene_{uuid.uuid4().hex}.mp4"
+
+    print(f"🌍 Theme detected: {theme} | 🎬 Using background: {bg_video}")
+
+    # Merge audio and background
+    os.system(f"ffmpeg -y -i {bg_video} -i {audio_path} -c:v libx264 -c:a aac -shortest {final_theme_video}")
+
+    return final_theme_video
+
+def build_auto_scene(script_text: str):
+    """
+    Builds cinematic video automatically by combining detected characters,
+    their voices, and background visuals.
+    """
+    dialogues = generate_auto_scene_script(script_text)
+    audio_segments = []
+
+    try:
+        for character, text in dialogues:
+            print(f"🎙 Generating voice for {character}: '{text[:40]}...'")
+            voice_id = CHARACTER_MODELS.get(character, {}).get("voice", "male")
+            avatar = CHARACTER_MODELS.get(character, {}).get("avatar", "assets/avatars/default_loop.mp4")
+
+            audio_path = f"/tmp/{character}_auto.mp3"
+            audio = generate(text=text, voice=voice_id, model="eleven_turbo_v2")
+            save(audio, audio_path)
+            audio_segments.append(audio_path)
+
+        # Merge all voices
+        combined_audio = "/tmp/final_auto_mix.mp3"
+        with open(combined_audio, "wb") as out_f:
+            for path in audio_segments:
+                with open(path, "rb") as in_f:
+                    out_f.write(in_f.read())
+
+        # Choose random cinematic background
+        bg_list = [
+            "https://cdn.pixabay.com/video/2023/07/18/17123-441987.mp4",
+            "https://cdn.pixabay.com/video/2023/02/16/15423-422987.mp4",
+            "https://cdn.pixabay.com/video/2023/05/25/16872-433222.mp4",
+        ]
+        bg_choice = random.choice(bg_list)
+
+        final_video = f"/tmp/final_auto_scene_{uuid.uuid4().hex}.mp4"
+        os.system(f"ffmpeg -y -i {bg_choice} -i {combined_audio} -c:v libx264 -c:a aac -shortest {final_video}")
+
+        print(f"✅ Auto cinematic scene created: {final_video}")
+        return final_video
+
+    except Exception as e:
+        print(f"❌ Auto scene build failed: {e}")
+        return None
+
+# fallback avatar (if not present)
+FALLBACK_AVATAR = "assets/avatars/default_loop.mp4"
+
+# ---------- Helper: character detection from script ----------
+import re
+def detect_char_dialogues(script_text: str) -> List[Tuple[str,str]]:
+    """
+    Parse script lines into list of (character, text).
+    Accepts formats like:
+      "Tiger: Hello" or "Man: Let's go" or free prose (then becomes narrator).
+    """
+    lines = [l.strip() for l in script_text.splitlines() if l.strip()]
+    result = []
+    for ln in lines:
+        m = re.match(r"^([A-Za-z0-9_ ]+):\s*(.+)$", ln)
+        if m:
+            name = m.group(1).strip()
+            text = m.group(2).strip()
+        else:
+            # fallback narrator
+            name = "narrator"
+            text = ln
+        result.append((name, text))
+    return result
+
+def map_to_known_character(name: str) -> str:
+    s = name.lower().strip()
+    if any(x in s for x in ["man","boy","male","sir"]): return "man"
+    if any(x in s for x in ["woman","female","girl","lady"]): return "woman"
+    if any(x in s for x in ["child","kid","boy","girl"]): return "child"
+    if any(x in s for x in ["old","grand","baba","dada","nana"]): return "old_man"
+    if "god" in s or "lord" in s or "deva" in s: return "god"
+    # animals explicit names
+    for k in ("tiger","monkey","lion","elephant","fox"):
+        if k in s: return k
+    # robot/alien/narrator fallback
+    if "robot" in s: return "robot"
+    if "alien" in s: return "alien"
+    if "narrator" in s: return "narrator"
+    # default fallback
+    return "man"
+
+# ---------- Helper: generate voice for a character (ElevenLabs if available else gTTS) ----------
+GTTS_AVAILABLE = 'gTTS' in globals()
+ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY") or os.getenv("ELEVENLABS_API_KEY") or os.getenv("ELEVEN_LABS_KEY")
+
+def generate_character_voice_fallback(character_label: str, text: str) -> str:
+    """
+    Generates TTS audio file and returns local path.
+    Prefer ElevenLabs via HTTP if ELEVEN_API_KEY present (simple POST),
+    else use gTTS fallback.
+    """
+    uid = uuid.uuid4().hex
+    out_mp3 = str(Path(app.config.get("TMP_FOLDER", "tmp"))/ f"{character_label}_{uid}.mp3")
+    # Attempt ElevenLabs (simple HTTP) - if not configured, fallback to gTTS
+    try:
+        if ELEVEN_API_KEY:
+            import requests
+            voice_map = {
+                "male":"21m00Tcm4TlvDq8ikWAM",
+                "female":"EXAVITQu4vr4xnSDxMaL",
+                "child":"TxGEqnHWrfWFTfGW9XjX",
+                "old":"ErXwobaYiN019PkySvjV",
+                "divine":"ErXwobaYiN019PkySvjV"
+            }
+            voice_id = voice_map.get(map_to_known_character(character_label), "21m00Tcm4TlvDq8ikWAM")
+            payload = {"text": text}
+            headers = {"xi-api-key": ELEVEN_API_KEY, "Content-Type":"application/json"}
+            # ElevenLabs TTS endpoint template — may require adjustment per your account
+            url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+            r = requests.post(url, json=payload, headers=headers, stream=True, timeout=30)
+            if r.status_code == 200:
+                with open(out_mp3, "wb") as fh:
+                    for chunk in r.iter_content(1024*32):
+                        fh.write(chunk)
+                return out_mp3
+            # if fails, fallthrough to gTTS
+    except Exception:
+        pass
+
+    # gTTS fallback
+    try:
+        from gtts import gTTS
+        tts = gTTS(text, lang="hi" if re.search(r'[\u0900-\u097F]', text) else "en")
+        Path(os.path.dirname(out_mp3)).mkdir(parents=True, exist_ok=True)
+        tts.save(out_mp3)
+        return out_mp3
+    except Exception as e:
+        log.exception("TTS fallback failed: %s", e)
+        raise RuntimeError("TTS generation failed")
+
+# ---------- Helper: create lip-synced clip by simply attaching audio to avatar loop ----------
+def create_lip_sync_clip(avatar_path: str, audio_path: str, duration: float = None) -> str:
+    """
+    avatar_path: local path or url to an avatar loop video (prefer mp4)
+    audio_path: local path to audio
+    returns path to output mp4
+    """
+    tmpdir = Path(app.config.get("TMP_FOLDER","tmp"))
+    tmpdir.mkdir(parents=True, exist_ok=True)
+    out = tmpdir / f"lipsync_{uuid.uuid4().hex}.mp4"
+    avatar = avatar_path or FALLBACK_AVATAR
+
+    # if avatar is remote URL, download
+    if str(avatar).startswith("http"):
+        try:
+            import requests
+            resp = requests.get(avatar, stream=True, timeout=30)
+            if resp.status_code == 200:
+                avtmp = tmpdir / f"avatar_{uuid.uuid4().hex}.mp4"
+                with open(avtmp, "wb") as f:
+                    for chunk in resp.iter_content(8192):
+                        f.write(chunk)
+                avatar = str(avtmp)
+        except Exception:
+            avatar = FALLBACK_AVATAR
+
+    # determine audio duration
+    audio_dur = None
+    try:
+        from moviepy.editor import AudioFileClip
+        ac = AudioFileClip(_abs_path(audio_path))
+        audio_dur = ac.duration
+        ac.close()
+    except Exception:
+        audio_dur = duration or 5.0
+
+    # use ffmpeg to trim/or loop avatar to audio length, then attach audio
+    # create video of exact audio_dur by looping avatar
+    loop_video = tmpdir / f"avatar_loop_{uuid.uuid4().hex}.mp4"
+    # -stream_loop for local files only; for remote already downloaded
+    cmd_loop = f"ffmpeg -y -i {avatar} -filter_complex \"loop=loop=0:size=1:start=0\" -t {audio_dur} -c:v libx264 -c:a copy {loop_video}"
+    # simpler fallback: just copy and let -shortest truncate
+    cmd_concat = f"ffmpeg -y -i {avatar} -i {audio_path} -shortest -c:v libx264 -c:a aac {out}"
+    try:
+        # try straightforward attach (works even if durations mismatch)
+        subprocess.check_call(cmd_concat, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return str(out)
+    except subprocess.CalledProcessError:
+        # final fallback: use moviepy concatenation
+        try:
+            from moviepy.editor import VideoFileClip, AudioFileClip
+            v = VideoFileClip(_abs_path(avatar))
+            a = AudioFileClip(_abs_path(audio_path))
+            if a.duration and v.duration < a.duration:
+                # loop video
+                clips = []
+                t = 0.0
+                while t < a.duration:
+                    clips.append(v.subclip(0, min(v.duration, a.duration - t)))
+                    t += v.duration
+                final = concatenate_videoclips(clips)
+            else:
+                final = v.subclip(0, a.duration) if a.duration else v
+            final = final.set_audio(a)
+            final.write_videofile(str(out), codec="libx264", audio_codec="aac")
+            v.close(); a.close()
+            return str(out)
+        except Exception as e:
+            log.exception("create_lip_sync_clip failed: %s", e)
+            raise
+
+# ---------- Compose scene: sequential clips (one clip per dialogue) ----------
+def compose_visual_scene_from_dialogues(dialogues: List[Tuple[str,str]]) -> str:
+    """
+    For each (character, text) create voice + lip-synced avatar clip, then concat sequentially.
+    Returns local mp4 path.
+    """
+    tmpdir = Path(app.config.get("TMP_FOLDER","tmp"))
+    tmpdir.mkdir(parents=True, exist_ok=True)
+    clip_paths = []
+    for name, text in dialogues:
+        char_key = map_to_known_character(name)
+        model = CHARACTER_MODELS.get(char_key, {})
+        avatar = model.get("avatar") or FALLBACK_AVATAR
+        # generate voice
+        try:
+            audio_path = generate_character_voice_fallback(name, text)
+        except Exception as e:
+            log.exception("voice generation failed: %s", e)
+            continue
+        # create lipsync clip
+        try:
+            clip = create_lip_sync_clip(avatar, audio_path)
+            clip_paths.append(clip)
+        except Exception as e:
+            log.exception("lip-sync clip failed for %s: %s", name, e)
+
+    if not clip_paths:
+        return None
+
+    # concatenate clips into final scene
+    final_out = tmpdir / f"ucve_scene_{uuid.uuid4().hex}.mp4"
+    try:
+        # build ffmpeg input string
+        with open(tmpdir / "inputs.txt", "w") as fh:
+            for p in clip_paths:
+                fh.write(f"file '{p}'\n")
+        cmd = f"ffmpeg -y -f concat -safe 0 -i {tmpdir/'inputs.txt'} -c copy {final_out}"
+        subprocess.check_call(cmd, shell=True)
+        return str(final_out)
+    except Exception:
+        # fallback to moviepy concatenation
+        try:
+            from moviepy.editor import VideoFileClip, concatenate_videoclips
+            clips = [VideoFileClip(p) for p in clip_paths]
+            final = concatenate_videoclips(clips, method="compose")
+            outp = str(final_out)
+            final.write_videofile(outp, codec="libx264", audio_codec="aac")
+            for c in clips: c.close()
+            return outp
+        except Exception as e:
+            log.exception("compose concat failed: %s", e)
+            return None
+
+# ---------- Public entry: Universal Character Visual Engine ----------
+def generate_universal_scene(script_text: str) -> str:
+    """
+    Main entry: takes script_text, auto-detects characters, composes visual scene,
+    then runs cinematic postprocessing (camera, ambient, lighting) if those functions exist.
+    Returns path to final mp4 or None.
+    """
+    try:
+        dialogues = detect_char_dialogues(script_text)
+        # Map names to known characters keywords
+        dialogues_mapped = [(map_to_known_character(n), t) for (n,t) in dialogues]
+        scene = compose_visual_scene_from_dialogues(dialogues_mapped)
+        if not scene:
+            return None
+
+        # optional postprocessing (use if functions defined earlier)
+        try:
+            # derive mood from full script if analyze_emotion exists
+            mood = None
+            if 'analyze_emotion' in globals():
+                mood = analyze_emotion(script_text)
+            else:
+                mood = "neutral"
+
+            if 'apply_dynamic_camera_effects' in globals():
+                scene = apply_dynamic_camera_effects(scene, mood or "cinematic")
+            if 'add_ambient_soundscape' in globals():
+                # choose ambient based on mood
+                amb = "jungle" if "tiger" in script_text.lower() or "jungle" in script_text.lower() else ("calm" if mood=="sad" else "emotional")
+                scene = add_ambient_soundscape(scene, amb)
+            if 'apply_cinematic_lighting' in globals():
+                scene = apply_cinematic_lighting(scene, mood or "neutral")
+
+        except Exception as e:
+            log.exception("postprocessing failed: %s", e)
+
+        return scene
+    except Exception as e:
+        log.exception("UCVE generation failed: %s", e)
+        return None
+
 # -------------------- Cinematic Background Music AI System --------------------
 import random
 
@@ -1413,6 +1932,36 @@ def call_did_talks(image_path: str, audio_path: Optional[str], script_text: Opti
         log.exception("D-ID integration error: %s", e)
     return None
 
+# ==============================================
+# 🎭 EMOTION-BASED VIDEO ENHANCER MODULE
+# ==============================================
+from textblob import TextBlob
+
+def analyze_emotion(text):
+    sentiment = TextBlob(text).sentiment.polarity
+    if sentiment > 0.3:
+        return "happy"
+    elif sentiment < -0.3:
+        return "sad"
+    elif -0.3 <= sentiment <= 0.3:
+        return "neutral"
+    else:
+        return "angry"
+
+def apply_emotion_effects(emotion, input_video, output_video):
+    try:
+        if emotion == "happy":
+            os.system(f"ffmpeg -y -i {input_video} -vf 'zoompan=z=\'min(zoom+0.0015,1.3)\':d=1:s=1080x1920' -af 'volume=1.2' {output_video}")
+        elif emotion == "sad":
+            os.system(f"ffmpeg -y -i {input_video} -vf 'hue=s=0.6, eq=brightness=-0.05' -af 'volume=0.8' {output_video}")
+        elif emotion == "angry":
+            os.system(f"ffmpeg -y -i {input_video} -vf 'eq=contrast=1.5:saturation=1.4' -af 'volume=1.5' {output_video}")
+        else:
+            os.system(f"cp {input_video} {output_video}")
+        return output_video
+    except Exception as e:
+        print("❌ Emotion effect error:", e)
+        return input_video
 
 # --------- Fallback (MoviePy based approximate lip-sync) ----------
 def approximate_lipsync_moviepy(image_path: str, audio_path: str, out_path: str, mouth_overlay_path: Optional[str] = None):
@@ -1580,6 +2129,37 @@ def api_generate_lipsync():
         v.status = "failed"; db.session.commit()
         return jsonify({"error":"lipsync_failed","details":str(e)}), 500
 
+# ==============================================
+# 🎭 EMOTION-BASED VIDEO ENHANCER MODULE
+# ==============================================
+from textblob import TextBlob
+
+def analyze_emotion(text):
+    sentiment = TextBlob(text).sentiment.polarity
+    if sentiment > 0.3:
+        return "happy"
+    elif sentiment < -0.3:
+        return "sad"
+    elif -0.3 <= sentiment <= 0.3:
+        return "neutral"
+    else:
+        return "angry"
+
+def apply_emotion_effects(emotion, input_video, output_video):
+    try:
+        if emotion == "happy":
+            os.system(f"ffmpeg -y -i {input_video} -vf 'zoompan=z=\'min(zoom+0.0015,1.3)\':d=1:s=1080x1920' -af 'volume=1.2' {output_video}")
+        elif emotion == "sad":
+            os.system(f"ffmpeg -y -i {input_video} -vf 'hue=s=0.6, eq=brightness=-0.05' -af 'volume=0.8' {output_video}")
+        elif emotion == "angry":
+            os.system(f"ffmpeg -y -i {input_video} -vf 'eq=contrast=1.5:saturation=1.4' -af 'volume=1.5' {output_video}")
+        else:
+            os.system(f"cp {input_video} {output_video}")
+        return output_video
+    except Exception as e:
+        print("❌ Emotion effect error:", e)
+        return input_video
+
 # -------------------- Google Veo Cinematic Generator --------------------
 import base64
 
@@ -1661,7 +2241,755 @@ def generate_cinematic():
                   status="done", meta_json=json.dumps({"prompt": prompt, "mode": "cinematic"}))
     db.session.add(v)
     db.session.commit()
-    return jsonify({"message": "cinematic video created", "file": v.file_path, "video_id": v.id})
+    return jsonify({"message": "cinematic video created", "file": v.file_path, "video_id": v.id}
+
+# =====================================================
+# 🎥 MULTI-SCENE CINEMATIC BACKGROUND TRANSITION ENGINE
+# =====================================================
+from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip, CompositeVideoClip, vfx
+
+def build_multiscene_video(dialogues):
+    """
+    Builds multi-scene cinematic video with background transitions.
+    Each dialogue = 1 scene with fade, zoom, and unique background.
+    """
+    try:
+        print("🎬 Building multi-scene cinematic video...")
+        scene_clips = []
+        backgrounds = [
+            "https://cdn.pixabay.com/video/2023/03/10/158989-804662703_large.mp4",  # Forest
+            "https://cdn.pixabay.com/video/2023/06/12/168662-836232104_large.mp4",  # Sunset
+            "https://cdn.pixabay.com/video/2021/09/08/90551-590322904_large.mp4",  # Mountain
+            "https://cdn.pixabay.com/video/2024/02/02/201425-902930285_large.mp4"   # River
+        ]
+
+        # Create a short scene for each dialogue
+        for idx, (animal, text) in enumerate(dialogues):
+            bg_path = random.choice(backgrounds)
+            audio_path = f"/tmp/{animal}_voice.mp3"
+            video_clip = VideoFileClip(bg_path).subclip(0, 5).resize((1080, 1920))
+            audio_clip = AudioFileClip(audio_path)
+
+            # Apply cinematic zoom and fade transitions
+            zoomed = video_clip.fx(vfx.zoom_in, 1.1 + 0.05 * idx)
+            faded = zoomed.crossfadein(1).crossfadeout(1)
+
+            # Add voice to background
+            combined = faded.set_audio(audio_clip)
+            scene_clips.append(combined)
+
+        # Concatenate all scenes together
+        final_movie = concatenate_videoclips(scene_clips, method="compose")
+        output_path = f"/tmp/final_cinematic_story_{uuid.uuid4().hex}.mp4"
+        final_movie.write_videofile(output_path, codec="libx264", audio_codec="aac")
+
+        print(f"✅ Multi-scene cinematic video created: {output_path}")
+        return output_path
+
+    except Exception as e:
+        print(f"❌ Multi-scene generation failed: {e}")
+        return None
+
+# =====================================================
+# 🐯🦊🐒 MULTI-CHARACTER ANIMAL CINEMATIC VOICE ENGINE
+# =====================================================
+from random import choice
+
+# Character voice map (ElevenLabs IDs or local tts)
+ANIMAL_VOICES = {
+    "tiger": "21m00Tcm4TlvDq8ikWAM",
+    "monkey": "EXAVITQu4vr4xnSDxMaL",
+    "lion": "TxGEqnHWrfWFTfGW9XjX",
+    "fox": "ErXwobaYiN019PkySvjV",
+    "elephant": "VR6AewLTigWG4xSOukaG",
+    "eagle": "Xb7hH8MSUJpSbSDYk0k2"
+}
+
+def generate_animal_voice_script(script_text):
+    """
+    Splits text by dialogues and assigns animal voices automatically
+    Example Input:
+      "Tiger: Main sher hoon! Monkey: Mujhe to mazak chahiye!"
+    """
+    lines = script_text.split(" ")
+    dialogues = []
+    current_animal = None
+    current_text = []
+
+    for word in lines:
+        if word.strip(":").lower() in ANIMAL_VOICES.keys():
+            if current_animal and current_text:
+                dialogues.append((current_animal, " ".join(current_text)))
+            current_animal = word.strip(":").lower()
+            current_text = []
+        else:
+            current_text.append(word)
+    if current_animal and current_text:
+        dialogues.append((current_animal, " ".join(current_text)))
+    return dialogues
+
+try:
+    print("🎞 Building multi-character animal cinematic video...")
+    from textblob import TextBlob
+
+    audio_segments = []
+    temp_audios = []
+
+    # 🎤 Generate each animal's voice
+    for animal, text in dialogues:
+        print(f"🎙 Generating voice for {animal} → {text[:40]}...")
+        voice_id = ANIMAL_VOICES.get(animal, ANIMAL_VOICES["lion"])
+        audio_path = f"/tmp/{animal}_voice.mp3"
+        audio = generate(text=text, voice=voice_id, model="eleven_multilingual_v2")
+        save(audio, audio_path)
+        temp_audios.append(audio_path)
+
+    # 🎧 Merge all voices sequentially
+    combined_audio = "/tmp/final_animals_mix.mp3"
+    with open(combined_audio, "wb") as out_f:
+        for path in temp_audios:
+            with open(path, "rb") as in_f:
+                out_f.write(in_f.read())
+
+    # 🌲 Choose cinematic background
+    bg_options = [
+        "https://cdn.pixabay.com/video/2023/03/10/158989-804662703_large.mp4",
+        "https://cdn.pixabay.com/video/2023/06/12/168662-836232104_large.mp4",
+        "https://cdn.pixabay.com/video/2021/09/08/90551-590322904_large.mp4"
+    ]
+    bg_choice = random.choice(bg_options)
+
+    # 🎨 AI Scene Mood & Color Grading
+    mood = "neutral"
+    try:
+        all_text = " ".join([t for _, t in dialogues])
+        sentiment = TextBlob(all_text).sentiment.polarity
+        if sentiment > 0.4:
+            mood = "warm"
+        elif sentiment < -0.4:
+            mood = "cool"
+        else:
+            mood = "cinematic"
+    except Exception as e:
+        print(f"⚠️ Sentiment check failed: {e}")
+
+    # 🪄 Apply cinematic filters based on mood
+    filter_cmd = ""
+    if mood == "warm":
+        filter_cmd = "-vf eq=brightness=0.05:saturation=1.3:contrast=1.2"
+    elif mood == "cool":
+        filter_cmd = "-vf eq=brightness=-0.03:saturation=0.8:contrast=1.0"
+    elif mood == "cinematic":
+        filter_cmd = "-vf curves=vintage"
+
+    final_video = f"/tmp/animal_scene_{uuid.uuid4().hex}.mp4"
+    os.system(f"ffmpeg -y -i {bg_choice} -i {combined_audio} -shortest {filter_cmd} -c:v libx264 -c:a aac {final_video}")
+
+    print(f"✅ Animal cinematic video created successfully: {final_video}")
+    return final_video
+
+# 💡 AI Cinematic Lighting Engine
+def apply_cinematic_lighting(input_video, mood="neutral"):
+    """
+    Dynamically adjusts brightness, contrast, and color tone
+    based on mood to achieve a cinematic visual feel.
+    Mood options: happy, sad, angry, emotional, dark, neutral
+    """
+    output_path = f"/tmp/lighting_{uuid.uuid4().hex}.mp4"
+
+    try:
+        print(f"💡 Applying cinematic lighting tone for mood: {mood}")
+
+        lighting_map = {
+            "happy": "eq=brightness=0.1:contrast=1.2:saturation=1.4",
+            "sad": "eq=brightness=-0.1:contrast=0.9:saturation=0.7",
+            "angry": "eq=contrast=1.5:saturation=1.1",
+            "emotional": "eq=brightness=-0.05:contrast=1.1:saturation=1.0",
+            "dark": "eq=brightness=-0.2:contrast=1.4:saturation=0.8",
+            "neutral": "eq=brightness=0:contrast=1:saturation=1"
+        }
+
+        filter_value = lighting_map.get(mood, lighting_map["neutral"])
+
+        os.system(f"ffmpeg -y -i {input_video} -vf {filter_value} -c:a copy {output_path}")
+
+        print(f"✅ Cinematic lighting applied: {output_path}")
+        return output_path
+
+    except Exception as e:
+        print(f"⚠️ Lighting engine error: {e}")
+        return input_video
+
+# 🎧 AI Ambient Soundscape Engine
+def add_ambient_soundscape(input_video, mood="forest"):
+    """
+    Adds ambient cinematic sound effects based on scene mood.
+    Mood options: forest, jungle, storm, calm, emotional
+    """
+    output_path = f"/tmp/ambient_mix_{uuid.uuid4().hex}.mp4"
+
+    # Default ambient library
+    ambient_map = {
+        "forest": "https://cdn.pixabay.com/audio/2022/03/15/audio_2e69a0f9d6.mp3",
+        "jungle": "https://cdn.pixabay.com/audio/2023/01/07/audio_65b8d8f239.mp3",
+        "storm": "https://cdn.pixabay.com/audio/2022/08/25/audio_09b4e5e835.mp3",
+        "calm": "https://cdn.pixabay.com/audio/2022/11/09/audio_941d8a07e1.mp3",
+        "emotional": "https://cdn.pixabay.com/audio/2022/02/17/audio_c17a3b76c2.mp3",
+    }
+
+    ambient_sound = ambient_map.get(mood, ambient_map["forest"])
+
+    try:
+        print(f"🎶 Adding ambient soundscape: {mood}")
+
+        os.system(
+            f"ffmpeg -y -i {input_video} -i {ambient_sound} "
+            f"-filter_complex \"[1:a]volume=0.5[a1];[0:a][a1]amix=inputs=2:duration=first[aout]\" "
+            f"-map 0:v -map \"[aout]\" -shortest -c:v copy -c:a aac {output_path}"
+        )
+
+        print(f"✅ Ambient sound added → {output_path}")
+        return output_path
+
+    except Exception as e:
+        print(f"⚠️ Ambient mix error: {e}")
+        return input_video
+
+# 🎥 AI Dynamic Camera Movement Engine
+def apply_dynamic_camera_effects(input_video, mood):
+    """
+    Adds smooth cinematic camera motion (zoom, pan, shake, focus) based on mood.
+    """
+    output_path = f"/tmp/camera_effect_{uuid.uuid4().hex}.mp4"
+
+    try:
+        print(f"🎬 Applying AI camera effects for mood: {mood}")
+
+        if mood == "warm":
+            # Slow zoom-in for motivational or happy tone
+            effect_cmd = (
+                "-filter_complex "
+                "\"zoompan=z='min(zoom+0.0015,1.2)':d=125:s=1280x720,eq=brightness=0.03:saturation=1.2\""
+            )
+        elif mood == "cool":
+            # Slow zoom-out for calm or sad tone
+            effect_cmd = (
+                "-filter_complex "
+                "\"zoompan=z='if(lte(zoom,1.0),1.2,max(zoom-0.0015,1.0))':d=125:s=1280x720,eq=saturation=0.8\""
+            )
+        elif mood == "cinematic":
+            # Gentle horizontal pan (left-right) + slight vignette
+            effect_cmd = (
+                "-filter_complex "
+                "\"crop=in_w-20:in_h-20,eq=contrast=1.1:saturation=1.05,vignette=PI/3\""
+            )
+        else:
+            # Subtle shake for strong or dramatic emotion
+            effect_cmd = (
+                "-filter_complex "
+                "\"vibrance=intensity=0.3,noise=alls=20:allf=t+u\""
+            )
+
+        os.system(f"ffmpeg -y -i {input_video} {effect_cmd} -c:v libx264 -preset veryfast -c:a copy {output_path}")
+        print(f"🎥 Camera motion added successfully → {output_path}")
+        return output_path
+
+    except Exception as e:
+        print(f"⚠️ Camera effect error: {e}")
+        return input_video
+
+except Exception as e:
+    print(f"❌ Error building animal cinematic video: {e}")
+    return None
+
+def build_animal_scene(dialogues):
+    """
+    Builds cinematic video with multiple animal dialogues and voice-over.
+    """
+    audio_segments = []
+    for animal, text in dialogues:
+        try:
+            print(f"🎙️ Generating voice for {animal}...")
+            voice_id = ANIMAL_VOICES.get(animal, ANIMAL_VOICES["lion"])
+            audio_path = f"/tmp/{animal}_voice.mp3"
+            audio = generate(text=text, voice=voice_id, model="eleven_multilingual_v2")
+            save(audio, audio_path)
+            audio_segments.append(audio_path)
+        except Exception as e:
+            print(f"⚠️ Voice generation failed for {animal}: {e}")
+
+    # merge audio clips into one file
+    combined_audio = "/tmp/final_animals_mix.mp3"
+    with open(combined_audio, "wb") as out_f:
+        for path in audio_segments:
+            with open(path, "rb") as in_f:
+                out_f.write(in_f.read())
+
+# Background cinematic visuals
+# 🎥 Add dynamic camera motion
+final_video = apply_dynamic_camera_effects(final_video, "cinematic")
+
+# 🎧 Add ambient soundscape (forest, jungle, storm, calm, etc.)
+final_video = add_ambient_soundscape(final_video, "jungle")
+
+# 💡 Add cinematic lighting tone
+final_video = apply_cinematic_lighting(final_video, "emotional")
+
+# 🌈 Add theme-based background (auto jungle/space/temple/war/city)
+final_video = add_theme_based_background(script_text, combined_audio)
+
+return final_video
+
+# ============================================
+# 🎙️ Hybrid Voice + AI Character Generator
+# ============================================
+
+from pydub import AudioSegment
+import tempfile
+import os
+
+@app.route("/generate-hybrid-video", methods=["POST"])
+def generate_hybrid_video():
+    """
+    User apni khud ki voice upload kare aur system baki characters aur visuals auto add kare.
+    """
+    try:
+        script_text = request.form.get("script_text", "")
+        user_audio = request.files.get("user_audio")
+
+        if not script_text.strip():
+            return jsonify({"error": "Script text is required"}), 400
+
+        if not user_audio:
+            return jsonify({"error": "User audio file is missing"}), 400
+
+        # Save user audio temporarily
+        user_audio_path = f"/tmp/user_voice_{uuid.uuid4().hex}.wav"
+        user_audio.save(user_audio_path)
+
+        print(f"🎤 User audio received: {user_audio_path}")
+
+        # Clean the user audio (normalize, remove noise, etc.)
+        clean_audio_path = f"/tmp/clean_voice_{uuid.uuid4().hex}.wav"
+        sound = AudioSegment.from_file(user_audio_path)
+        sound = sound.normalize()
+        sound.export(clean_audio_path, format="wav")
+        print("🧼 Voice cleaned and normalized")
+
+        # Detect missing characters and generate AI voices for them
+        dialogues = generate_animal_voice_script(script_text)
+        generated_segments = []
+
+        for animal, text in dialogues:
+            if "user" in animal.lower():
+                generated_segments.append(clean_audio_path)
+            else:
+                try:
+                    voice_id = ANIMAL_VOICES.get(animal, ANIMAL_VOICES["tiger"])
+                    audio_path = f"/tmp/{animal}_auto_voice.mp3"
+                    audio = generate(text=text, voice=voice_id, model="eleven_multilingual_v2")
+                    save(audio, audio_path)
+                    generated_segments.append(audio_path)
+                    print(f"✅ Generated AI voice for {animal}")
+                except Exception as e:
+                    print(f"⚠️ Voice generation failed for {animal}: {e}")
+
+        # Merge all voices
+        combined_audio = f"/tmp/final_hybrid_audio_{uuid.uuid4().hex}.mp3"
+        with open(combined_audio, "wb") as out_f:
+            for path in generated_segments:
+                with open(path, "rb") as in_f:
+                    out_f.write(in_f.read())
+
+        # Detect theme + visuals
+        final_video = add_theme_based_background(script_text, combined_audio)
+
+        print(f"🎬 Final hybrid video created: {final_video}")
+        return jsonify({
+            "message": "Hybrid video created successfully!",
+            "video_path": final_video
+        }), 200
+
+    except Exception as e:
+        print(f"❌ Hybrid generation failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# ============================================
+# 🎭 AI Face Avatar Generator (User Image + Voice)
+# ============================================
+
+from PIL import Image
+import base64
+import cv2
+import numpy as np
+
+@app.route("/generate-avatar-video", methods=["POST"])
+def generate_avatar_video():
+    """
+    User apne photo aur voice (optional) se animated avatar video banata hai.
+    Agar user voice nahi deta to AI voice use hoti hai.
+    """
+    try:
+        script_text = request.form.get("script_text", "")
+        user_photo = request.files.get("user_photo")
+        user_audio = request.files.get("user_audio")
+
+        if not user_photo:
+            return jsonify({"error": "User photo missing"}), 400
+
+        if not script_text.strip():
+            return jsonify({"error": "Script text required"}), 400
+
+        # Save user photo
+        user_photo_path = f"/tmp/user_photo_{uuid.uuid4().hex}.jpg"
+        user_photo.save(user_photo_path)
+        print(f"🖼️ User photo saved: {user_photo_path}")
+
+        # Resize and enhance photo
+        img = Image.open(user_photo_path).convert("RGB")
+        img = img.resize((512, 512))
+        enhanced_path = f"/tmp/enhanced_face_{uuid.uuid4().hex}.jpg"
+        img.save(enhanced_path)
+        print("✨ Face enhanced and resized")
+
+        # Handle voice
+        if user_audio:
+            user_audio_path = f"/tmp/user_voice_{uuid.uuid4().hex}.wav"
+            user_audio.save(user_audio_path)
+            final_audio = user_audio_path
+            print("🎤 User voice uploaded")
+        else:
+            # Generate AI voice automatically
+            voice_id = "21m00Tcm4TlvDq8ikWAM"
+            ai_audio_path = f"/tmp/ai_avatar_voice_{uuid.uuid4().hex}.mp3"
+            ai_audio = generate(text=script_text, voice=voice_id, model="eleven_multilingual_v2")
+            save(ai_audio, ai_audio_path)
+            final_audio = ai_audio_path
+            print("🧠 Generated AI voice for avatar")
+
+        # Generate talking avatar using Wav2Lip (lip sync)
+        final_avatar_video = f"/tmp/final_avatar_{uuid.uuid4().hex}.mp4"
+        os.system(f"python3 scripts/wav2lip.py --face {enhanced_path} --audio {final_audio} --outfile {final_avatar_video}")
+
+        # Add cinematic post-effects
+        final_avatar_video = apply_cinematic_lighting(final_avatar_video, "portrait")
+        final_avatar_video = apply_dynamic_camera_effects(final_avatar_video, "closeup")
+
+        print(f"🎬 Avatar video created successfully: {final_avatar_video}")
+        return jsonify({
+            "message": "Avatar video created successfully!",
+            "video_path": final_avatar_video
+        }), 200
+
+    except Exception as e:
+        print(f"❌ Avatar generation failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# ============================================
+# 🎭 AI Expression Engine (Emotion-Based Animation)
+# ============================================
+
+import cv2
+import numpy as np
+
+def detect_emotion_from_text(script_text: str) -> str:
+    """
+    Basic emotion detector from script keywords.
+    You can expand with a real NLP emotion model later.
+    """
+    text = script_text.lower()
+    if any(word in text for word in ["sad", "cry", "lonely", "hurt", "pain"]):
+        return "sad"
+    elif any(word in text for word in ["happy", "joy", "smile", "fun", "laugh"]):
+        return "happy"
+    elif any(word in text for word in ["angry", "rage", "furious", "fight"]):
+        return "angry"
+    elif any(word in text for word in ["shock", "surprise", "wow", "amazing"]):
+        return "surprised"
+    else:
+        return "neutral"
+
+
+def apply_facial_expression(video_path: str, emotion: str) -> str:
+    """
+    Adds dynamic facial expressions based on emotion.
+    Uses OpenCV filters and overlay for cinematic feel.
+    """
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        print("❌ Failed to open video for emotion enhancement.")
+        return video_path
+
+    output_path = f"/tmp/emotion_video_{uuid.uuid4().hex}.mp4"
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+    print(f"🎨 Applying emotion overlay: {emotion}")
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        overlay = frame.copy()
+
+        if emotion == "happy":
+            cv2.addWeighted(overlay, 0.5, frame, 0.5, 30, frame)
+        elif emotion == "sad":
+            blue_tint = np.full_like(frame, (100, 120, 200))
+            frame = cv2.addWeighted(blue_tint, 0.3, frame, 0.7, 0)
+        elif emotion == "angry":
+            red_tint = np.full_like(frame, (200, 80, 80))
+            frame = cv2.addWeighted(red_tint, 0.4, frame, 0.6, 10)
+        elif emotion == "surprised":
+            bright = cv2.convertScaleAbs(frame, alpha=1.3, beta=25)
+            frame = cv2.addWeighted(bright, 0.7, frame, 0.3, 0)
+
+        out.write(frame)
+
+    cap.release()
+    out.release()
+    print(f"✅ Emotion overlay applied successfully: {output_path}")
+    return output_path
+
+# ============================================
+# 🌄 AI Scene Fusion Engine (Automatic Environment Generator)
+# ============================================
+
+import random
+
+# Predefined cinematic theme library (URLs or cloud assets)
+SCENE_BACKGROUNDS = {
+    "jungle": [
+        "https://cdn.pixabay.com/video/2023/03/10/158969-808529993_large.mp4",
+        "https://cdn.pixabay.com/video/2021/09/08/90557-598460154_large.mp4"
+    ],
+    "space": [
+        "https://cdn.pixabay.com/video/2023/05/21/162244-828607506_large.mp4",
+        "https://cdn.pixabay.com/video/2023/02/03/149894-799048304_large.mp4"
+    ],
+    "temple": [
+        "https://cdn.pixabay.com/video/2022/11/18/139572-773815509_large.mp4"
+    ],
+    "city": [
+        "https://cdn.pixabay.com/video/2023/06/04/164536-835406787_large.mp4"
+    ],
+    "mountain": [
+        "https://cdn.pixabay.com/video/2023/07/06/167154-846043081_large.mp4"
+    ],
+    "fire": [
+        "https://cdn.pixabay.com/video/2023/08/09/169232-856291781_large.mp4"
+    ],
+    "ocean": [
+        "https://cdn.pixabay.com/video/2023/05/03/160956-823260676_large.mp4"
+    ],
+    "rain": [
+        "https://cdn.pixabay.com/video/2023/09/09/172200-867774999_large.mp4"
+    ],
+    "sky": [
+        "https://cdn.pixabay.com/video/2023/10/10/175501-880036152_large.mp4"
+    ]
+}
+
+
+def detect_scene_theme(script_text: str) -> str:
+    """
+    Auto-detect the best matching scene type from the script.
+    """
+    text = script_text.lower()
+    if any(word in text for word in ["jungle", "forest", "animals"]):
+        return "jungle"
+    elif any(word in text for word in ["space", "planet", "galaxy", "star"]):
+        return "space"
+    elif any(word in text for word in ["temple", "god", "prayer"]):
+        return "temple"
+    elif any(word in text for word in ["mountain", "hill", "snow", "adventure"]):
+        return "mountain"
+    elif any(word in text for word in ["city", "street", "modern", "urban"]):
+        return "city"
+    elif any(word in text for word in ["fire", "anger", "battle"]):
+        return "fire"
+    elif any(word in text for word in ["ocean", "sea", "water", "boat"]):
+        return "ocean"
+    elif any(word in text for word in ["rain", "sad", "cry", "monsoon"]):
+        return "rain"
+    elif any(word in text for word in ["sky", "heaven", "freedom"]):
+        return "sky"
+    else:
+        return "city"  # default theme
+
+def add_auto_scene_background(script_text: str, video_path: str) -> str:
+    """
+    Merge cinematic background video with the generated character/voice video.
+    """
+    theme = detect_scene_theme(script_text)
+    bg_video = random.choice(SCENE_BACKGROUNDS.get(theme, []))
+
+    output_path = f"/tmp/scene_fusion_{uuid.uuid4().hex}.mp4"
+    print(f"🌄 Auto-applying scene theme: {theme} ({bg_video})")
+
+    # Merge with ffmpeg
+    os.system(f"ffmpeg -y -i '{bg_video}' -i '{video_path}' -filter_complex '[0:v][1:v]overlay=(W-w)/2:(H-h)/2' -shortest {output_path}")
+
+    print(f"✅ Scene fusion complete: {output_path}")
+    return output_path
+
+# ============================================
+# 🎧 AI Sound Emotion Composer (ASEC Engine)
+# ============================================
+
+import random
+
+# Predefined emotion → music & sound effect library
+SOUND_LIBRARY = {
+    "happy": [
+        "https://cdn.pixabay.com/audio/2023/03/14/audio_507b06a1a5.mp3",
+        "https://cdn.pixabay.com/audio/2023/03/20/audio_7a11f9f75b.mp3"
+    ],
+    "sad": [
+        "https://cdn.pixabay.com/audio/2022/12/27/audio_d52a493b68.mp3",
+        "https://cdn.pixabay.com/audio/2023/02/05/audio_846f2f7cdb.mp3"
+    ],
+    "angry": [
+        "https://cdn.pixabay.com/audio/2023/04/22/audio_c7a4f0a8a1.mp3",
+        "https://cdn.pixabay.com/audio/2023/05/01/audio_fa92f28dbf.mp3"
+    ],
+    "romantic": [
+        "https://cdn.pixabay.com/audio/2022/11/11/audio_bfa348f33f.mp3"
+    ],
+    "motivational": [
+        "https://cdn.pixabay.com/audio/2023/03/06/audio_1479c10fa3.mp3",
+        "https://cdn.pixabay.com/audio/2023/01/17/audio_b14e8df24e.mp3"
+    ],
+    "nature": [
+        "https://cdn.pixabay.com/audio/2023/04/17/audio_1848a6e2c8.mp3"
+    ],
+    "mystery": [
+        "https://cdn.pixabay.com/audio/2023/02/12/audio_2b1b66fd0a.mp3"
+    ]
+}
+
+# Auto map theme to sound category
+THEME_TO_MOOD = {
+    "jungle": "nature",
+    "space": "mystery",
+    "temple": "romantic",
+    "fire": "angry",
+    "ocean": "sad",
+    "rain": "sad",
+    "mountain": "motivational",
+    "city": "motivational",
+    "sky": "happy"
+}
+
+
+def add_emotion_music(script_text: str, video_path: str) -> str:
+    """
+    Add background music + emotion-based sound design automatically.
+    """
+    emotion = detect_emotion_from_text(script_text)
+    theme = detect_scene_theme(script_text)
+
+    # Choose suitable music track
+    music_category = THEME_TO_MOOD.get(theme, emotion)
+    sound_track = random.choice(SOUND_LIBRARY.get(music_category, SOUND_LIBRARY["motivational"]))
+
+    output_path = f"/tmp/final_soundmix_{uuid.uuid4().hex}.mp4"
+
+    print(f"🎧 Adding soundscape: {music_category} ({sound_track})")
+
+    # Merge video + audio with ffmpeg
+    os.system(f"ffmpeg -y -i '{video_path}' -i '{sound_track}' -filter_complex '[1:a]volume=0.35[a1];[0:a][a1]amix=inputs=2:duration=longest' -shortest {output_path}")
+
+    print(f"✅ Sound fusion complete: {output_path}")
+    return output_path
+
+@app.route("/generate-sound-video", methods=["POST"])
+def generate_sound_video():
+    """
+    Generates final cinematic video with theme + emotion + soundscape.
+    """
+    try:
+        data = request.get_json(force=True)
+        script_text = data.get("script_text", "")
+        video_path = data.get("video_path", "")
+
+        if not script_text.strip():
+            return jsonify({"error": "Missing script_text"}), 400
+        if not os.path.exists(video_path):
+            return jsonify({"error": "Invalid video path"}), 400
+
+        final_sound_video = add_emotion_music(script_text, video_path)
+
+        return jsonify({
+            "message": "Final cinematic video with emotion-based sound added!",
+            "video_path": final_sound_video
+        }), 200
+
+    except Exception as e:
+        print(f"❌ Sound generation failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/generate-scene-video", methods=["POST"])
+def generate_scene_video():
+    """
+    Automatically builds a cinematic AI video with auto-detected background theme.
+    """
+    try:
+        data = request.get_json(force=True)
+        script_text = data.get("script_text", "")
+        video_path = data.get("video_path", "")
+
+        if not script_text.strip():
+            return jsonify({"error": "Missing script_text"}), 400
+        if not os.path.exists(video_path):
+            return jsonify({"error": "Invalid video path"}), 400
+
+        fused_video = add_auto_scene_background(script_text, video_path)
+
+        return jsonify({
+            "message": "Cinematic scene video generated successfully!",
+            "theme": detect_scene_theme(script_text),
+            "video_path": fused_video
+        }), 200
+
+    except Exception as e:
+        print(f"❌ Scene fusion failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/generate-expressive-video", methods=["POST"])
+def generate_expressive_video():
+    """
+    Create a cinematic video with dynamic face emotion effects.
+    """
+    try:
+        data = request.get_json(force=True)
+        script_text = data.get("script_text", "")
+        video_path = data.get("video_path", "")
+
+        if not script_text.strip():
+            return jsonify({"error": "Script text is required"}), 400
+
+        if not os.path.exists(video_path):
+            return jsonify({"error": "Invalid or missing video path"}), 400
+
+        # Detect emotion and apply effect
+        emotion = detect_emotion_from_text(script_text)
+        expressive_video = apply_facial_expression(video_path, emotion)
+
+        print(f"🎭 Expressive video created successfully: {expressive_video}")
+        return jsonify({
+            "message": "Expressive cinematic video created!",
+            "emotion": emotion,
+            "video_path": expressive_video
+        }), 200
+
+    except Exception as e:
+        print(f"❌ Emotion video generation failed: {e}")
+        return jsonify({"error": str(e)}), 500
 
 # -------------------- API Endpoint: Generate Video --------------------
 @app.route("/generate-video", methods=["POST"])
