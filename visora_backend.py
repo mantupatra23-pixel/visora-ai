@@ -1663,6 +1663,36 @@ def generate_cinematic():
     db.session.commit()
     return jsonify({"message": "cinematic video created", "file": v.file_path, "video_id": v.id})
 
+# -------------------- API Endpoint: Generate Video --------------------
+@app.route("/generate-video", methods=["POST"])
+def generate_video_api():
+    """
+    API endpoint to generate cinematic AI video from a text script.
+    Automatically creates scenes, voices, and visuals.
+    """
+    try:
+        data = request.get_json(force=True)
+        script_text = data.get("script_text", "")
+        if not script_text.strip():
+            return jsonify({"error": "Missing script_text"}), 400
+
+        # 🔥 Run the full cinematic AI generation pipeline
+        output_path = build_ai_composed_video(script_text)
+
+        if output_path:
+            # Success response
+            return jsonify({
+                "status": "success",
+                "message": "Cinematic AI video generated successfully.",
+                "video_url": output_path
+            }), 200
+        else:
+            return jsonify({"error": "Video generation failed"}), 500
+
+    except Exception as e:
+        log.error(f"API Error in /generate-video: {e}")
+        return jsonify({"error": str(e)}), 500
+
 # -------------------- Requirements & .env template --------------------
 REQUIREMENTS_TXT = """
 Flask
