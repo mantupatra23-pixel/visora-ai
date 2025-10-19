@@ -30,7 +30,6 @@ try:
 except Exception as e:
     print("⚠️ MoviePy not available:", e)
     MOVIEPY_AVAILABLE = False
-
 try:
     from gtts import gTTS
     GTTS_AVAILABLE = True
@@ -162,7 +161,7 @@ def token_create(email: str):
 
 def token_verify(token: str):
     try:
-        return jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
+       return jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
     except Exception:
         return None
 
@@ -204,7 +203,6 @@ def token_verify(token):
         return None
     except jwt.InvalidTokenError:
         return None
-
 
 # ---------------- REGISTER ----------------
 @app.route("/register", methods=["POST"])
@@ -422,26 +420,24 @@ def worker_loop():
                         v.status = "done"
                         db.session.commit()
             log.info("Render job done: %s", job_id)
-        except Exception as e:
-            log.exception("Render failed for %s: %s", job_id, e)
-            render_jobs[job_id]["status"] = "failed"
-            render_jobs[job_id]["error"] = str(e)
-            # mark DB if present
-            vid_id = job.get("video_db_id")
-            if vid_id:
-                with app.app_context():
-                    v = Video.query.get(vid_id)
-                    if v:
-                        v.status = "failed"
-                        db.session.commit()
-        finally:
-            try:
-                render_queue.task_done()
-            except:
-                pass
+           except Exception as e:
+        log.exception("Render failed for %s: %s", job_id, str(e))
+        render_jobs[job_id]["status"] = "failed"
+        render_jobs[job_id]["error"] = str(e)
+        # mark DB if present
+        vid_id = job.get("video_db_id")
+        if vid_id:
+            with app.app_context():
+                v = Video.query.get(vid_id)
+                if v:
+                    v.status = "failed"
+                    db.session.commit()
 
-worker_thread = threading.Thread(target=worker_loop, daemon=True)
-worker_thread.start()
+    finally:
+        try:
+            render_queue.task_done()
+        except Exception as e:
+            log.warning(f"⚠️ Task cleanup failed: {e}")
 
 # -------------------- API: generate_video --------------------
 @app.route("/generate_video", methods=["POST"])
