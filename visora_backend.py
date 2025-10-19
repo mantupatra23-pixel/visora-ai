@@ -1283,7 +1283,6 @@ def build_emotion_cinematic_video(script_text: str) -> str:
             final_video = concatenate_videoclips(clips, method="compose")
             output_path = OUTPUT_FOLDER / f"emotion_story_{uuid.uuid4().hex[:8]}.mp4"
             final_video.write_videofile(str(output_path), fps=24)
-            log.info(f"✅ Emotion-based cinematic video created: {output_path}")
             return str(output_path)
         else:
             log.warning("⚠️ No clips generated.")
@@ -3167,3 +3166,4 @@ Visora Backend - Run / Deploy Instructions (Hindi)
 print("✅ Requirements sample (copy content to requirements.txt):\n", REQUIREMENTS_TXT)
 print("✅ .env template (copy to .env):\n", ENV_TEMPLATE)
 print("✅ Deployment instructions:\n", DEPLOY_INSTRUCTIONS)
+
