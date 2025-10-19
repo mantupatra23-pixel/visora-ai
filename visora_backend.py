@@ -2261,7 +2261,6 @@ def generate_cinematic_video(prompt: str, duration: int = 10):
                     video_data = base64.b64decode(data["video"]["base64Data"])
                     with open(out_path, "wb") as f:
                         f.write(video_data)
-                    log.info(f"Google Veo cinematic video created: {out_path}")
                     return str(out_path)
                 else:
                     log.warning("Veo API response incomplete, fallbacking.")
