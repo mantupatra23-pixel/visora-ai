@@ -1,5 +1,5 @@
 name: visora_ai
-description: Visora - Ultimate AI Video Studio
+description: Visora – Ultimate AI Video Studio
 publish_to: "none"
 version: 1.0.0+1
 
@@ -17,6 +17,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
@@ -29,3 +30,8 @@ flutter:
     - assets/logo/visora_logo_dark.png
     - assets/logo/visora_full_text.png
     - assets/logo/visora_brand_banner.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo/visora_logo.png"
