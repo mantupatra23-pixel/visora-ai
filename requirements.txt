@@ -10,3 +10,4 @@ google-cloud-storage
 firebase-admin
 python-dotenv
 razorpay
+gunicorn
