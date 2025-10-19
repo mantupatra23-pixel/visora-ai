@@ -1,52 +1,57 @@
-name: Build Signed Flutter APK (Cloud Only)
+name: Build Signed Flutter APK (Cloud + Manual Deploy)
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:   # ✅ Manual deploy mode (no auto builds on push)
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.19.6'
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.19.6'
 
-      - name: Recreate Android Folder (valid package name)
-        run: |
-          rm -rf android
-          flutter create --org com.visora visora_ai
-          mv visora_ai/android ./android
-          rm -rf visora_ai
-          echo "✅ Android folder recreated successfully with correct package name"
+    - name: Recreate Android Folder (valid package name)
+      run: |
+        rm -rf android
+        flutter create --org com.visora visora_ai
+        mv visora_ai/android ./android
+        rm -rf visora_ai
+        echo "✅ Android folder recreated successfully"
 
-      - name: Flutter pub get
-        run: flutter pub get
+    - name: Flutter pub get
+      run: flutter pub get
 
-      - name: Decode keystore
-        run: echo "${{ secrets.VISORA_KEY }}" | base64 --decode > visora-key.keystore
+    - name: Decode keystore
+      run: echo "${{ secrets.VISORA_KEY }}" | base64 --decode > visora-key.keystore
 
-      - name: Create key.properties
-        run: |
-          echo "storePassword=${{ secrets.KEYSTORE_PASS }}" >> android/key.properties
-          echo "keyPassword=${{ secrets.KEYSTORE_PASS }}" >> android/key.properties
-          echo "keyAlias=visora" >> android/key.properties
-          echo "storeFile=visora-key.keystore" >> android/key.properties
+    - name: Create key.properties
+      run: |
+        echo "storePassword=${{ secrets.KEYSTORE_PASS }}" > android/key.properties
+        echo "keyPassword=${{ secrets.KEYSTORE_PASS }}" >> android/key.properties
+        echo "keyAlias=visora" >> android/key.properties
+        echo "storeFile=visora-key.keystore" >> android/key.properties
 
-      - name: Accept Android licenses
-        run: yes | sdkmanager --licenses || true
+    - name: Accept Android licenses
+      run: yes | sdkmanager --licenses || true
 
-      - name: Build Signed Release APK
-        run: flutter build apk --release
+    - name: Build Signed Release APK
+      run: flutter build apk --release
 
-      - name: Upload Signed APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: visora-signed-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+    - name: Upload Signed APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: visora-signed-apk
+        path: build/app/outputs/flutter-apk/app-release.apk
+
+    - name: Deploy Backend (Manual Trigger)
+      if: ${{ github.event.inputs.deploy_backend == 'true' }}
+      run: |
+        echo "🚀 Deploying backend..."
+        flutter pub run backend:deploy
+        echo "✅ Backend deployed successfully (manual trigger)"
