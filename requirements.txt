@@ -8,13 +8,16 @@ PyJWT
 
 # --- AI / Voice / Video ---
 moviepy
-imageio[ffmpeg]   # ✅ Added for moviepy video export & ffmpeg support
+imageio[ffmpeg]   # ✅ ffmpeg for video export
+imageio-ffmpeg    # ✅ fixes moviepy.editor import
+decorator         # ✅ fixes moviepy dependency
+proglog           # ✅ progress bar support
 gTTS
 openai
 requests
 numpy
 Pillow
-textblob  # 👈 Added for emotion & tone analysis
+textblob  # 👈 emotion & tone analysis
 
 # --- Cloud Integration ---
 firebase-admin
