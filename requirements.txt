@@ -1,0 +1,12 @@
+Flask
+Flask-SQLAlchemy
+Flask-Cors
+PyJWT
+moviepy
+gTTS
+requests
+boto3
+google-cloud-storage
+firebase-admin
+python-dotenv
+razorpay
