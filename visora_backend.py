@@ -1188,9 +1188,9 @@ def build_cinematic_scenes(script_text: str):
 # ---------------- Emotion-Based Cinematic Tone Enhancement ----------------
 import textblob
 from moviepy.editor import (
-    vfx, 
-    ImageClip, 
-    concatenate_videoclips, 
+    vfx,
+    ImageClip,
+    concatenate_videoclips,
     AudioFileClip
 )
 from pathlib import Path
@@ -1201,7 +1201,6 @@ import logging as log
 OUTPUT_FOLDER = Path("outputs")
 OUTPUT_FOLDER.mkdir(exist_ok=True)
 
-
 # 💡 Detect Emotion from Script Text
 def analyze_emotion_from_text(text: str) -> str:
     """
@@ -1210,7 +1209,6 @@ def analyze_emotion_from_text(text: str) -> str:
     try:
         blob = textblob.TextBlob(text)
         polarity = blob.sentiment.polarity
-
         if polarity > 0.5:
             return "excited"
         elif polarity > 0.1:
@@ -1224,7 +1222,6 @@ def analyze_emotion_from_text(text: str) -> str:
     except Exception as e:
         log.warning(f"Emotion detection failed: {e}")
         return "neutral"
-
 
 # 🎨 Apply Emotion-Based Visual Filter
 def apply_emotion_filter(clip, emotion: str):
@@ -1247,49 +1244,53 @@ def apply_emotion_filter(clip, emotion: str):
         log.warning(f"Emotion filter failed: {e}")
         return clip
 
-
 # 🎬 Build Full Emotion-Cinematic Video
 def build_emotion_cinematic_video(script_text: str) -> str:
     """
     Combine emotion detection + avatar + voice to build cinematic video.
     """
-    segments = detect_characters_from_script(script_text)
-    clips = []
+    try:
+        segments = detect_characters_from_script(script_text)
+        clips = []
 
-    for seg in segments:
-        name = seg.get("character", "Unknown")
-        voice_type = seg.get("voice_type", "neutral")
-        text = seg.get("text", "")
+        for seg in segments:
+            name = seg.get("character", "Unknown")
+            voice_type = seg.get("voice_type", "neutral")
+            text = seg.get("text", "")
 
-        emotion = analyze_emotion_from_text(text)
-        avatar_url = fetch_avatar_for_character(name, voice_type)
+            emotion = analyze_emotion_from_text(text)
+            avatar_url = fetch_avatar_for_character(name, voice_type)
 
-        log.info(f"🎞️ Scene: {name} ({emotion}) -> {text}")
+            log.info(f"🎞️ Scene: {name} ({emotion}) -> {text}")
 
-        try:
-            # 🖼️ Create character clip + 🎤 voice
-            img_clip = ImageClip(avatar_url).resize((720, 1280))
-            voice_path = generate_character_voice(name, voice_type, text)
-            audio_clip = AudioFileClip(voice_path)
-            dur = max(audio_clip.duration, 3)
+            try:
+                # 🖼️ Create character clip + 🎤 voice
+                img_clip = ImageClip(avatar_url).resize((720, 1280))
+                voice_path = generate_character_voice(name, voice_type, text)
+                audio_clip = AudioFileClip(voice_path)
+                dur = max(audio_clip.duration, 3)
 
-            # 🎥 Apply cinematic & emotion filters
-            img_clip = cinematic_motion(img_clip)
-            img_clip = apply_emotion_filter(img_clip, emotion)
+                # 🎥 Apply cinematic & emotion filters
+                img_clip = cinematic_motion(img_clip)
+                img_clip = apply_emotion_filter(img_clip, emotion)
 
-            final_clip = img_clip.set_duration(dur).set_audio(audio_clip)
-            clips.append(final_clip)
-        except Exception as e:
-            log.warning(f"Scene generation failed for {name}: {e}")
+                final_clip = img_clip.set_duration(dur).set_audio(audio_clip)
+                clips.append(final_clip)
+            except Exception as e:
+                log.warning(f"Scene generation failed for {name}: {e}")
 
-    if clips:
-        final_video = concatenate_videoclips(clips, method="compose")
-        output_path = OUTPUT_FOLDER / f"emotion_story_{uuid.uuid4().hex[:8]}.mp4"
-        final_video.write_videofile(str(output_path), fps=24)
-        log.info(f"✅ Emotion-based cinematic video created: {output_path}")
-        return str(output_path)
-    else:
-        log.warning("⚠️ No clips generated.")
+        if clips:
+            final_video = concatenate_videoclips(clips, method="compose")
+            output_path = OUTPUT_FOLDER / f"emotion_story_{uuid.uuid4().hex[:8]}.mp4"
+            final_video.write_videofile(str(output_path), fps=24)
+            log.info(f"✅ Emotion-based cinematic video created: {output_path}")
+            return str(output_path)
+        else:
+            log.warning("⚠️ No clips generated.")
+            return None
+
+    except Exception as e:
+        log.error(f"❌ Error in build_emotion_cinematic_video: {e}")
         return None
 
 # =========================
