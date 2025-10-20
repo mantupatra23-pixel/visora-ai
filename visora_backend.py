@@ -3138,10 +3138,9 @@ def selfcheck():
     })
 
 # ===============================================================
-# 🚦 Flask Limiter (Safe Import + Init - UCVE v22)
+# 🧩 Flask Limiter (Safe Import + Initialization - UCVE v22 Final)
 # ===============================================================
 try:
-    import flask_limiter
     from flask_limiter import Limiter
     from flask_limiter.util import get_remote_address
 
@@ -3150,10 +3149,11 @@ try:
         default_limits=["100 per minute"]
     )
 
-    print("✅ Flask-Limiter imported and initialized (UCVE v22)")
+    limiter.init_app(app)
+    print("✅ Flask-Limiter initialized successfully (UCVE v22 Final)")
 except Exception as e:
-    print(f"⚠️ Flask-Limiter not available: {e}")
     limiter = None
+    print(f"⚠️ Flask-Limiter disabled (reason: {e})")
 
 # ------------------------------
 # 🧩 App Runner
