@@ -530,8 +530,11 @@ def worker_loop():
 
             log.info("Render job done: %s", job_id)
 
-        except Exception as e:
-            log.exception("Render failed for %s: %s", job_id, str(e))
+           finally:
+    try:
+        pass  # ensures no empty block
+    except Exception as e:
+        log.exception("Error inside finally block: %s", e)
             render_jobs[job_id]["status"] = "failed"
             render_jobs[job_id]["error"] = str(e)
 
