@@ -63,6 +63,9 @@ reindent==3.5.1
 setuptools==75.2.0
 packaging==24.1
 open3d==0.17.0  # ✅ Added missing 3D rendering library
+torch==2.3.1
+torchvision==0.18.1
+torchaudio==2.3.1
 
 # ===============================================================
 # ✅ END OF REQUIREMENTS
