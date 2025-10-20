@@ -17,8 +17,6 @@ from typing import Optional
 
 # Initialize Flask app
 app = Flask(__name__)
-if limiter:
-    limiter.init_app(app)
 
 # ------------------------------
 # 🔐 Configuration
