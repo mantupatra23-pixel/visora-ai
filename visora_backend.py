@@ -1728,40 +1728,44 @@ def compose_visual_scene_from_dialogues(dialogues: List[Tuple[str,str]]) -> str:
 # ---------- Public entry: Universal Character Visual Engine ----------
 def generate_universal_scene(script_text: str) -> str:
     """
-    Main entry: takes script_text, auto-detects characters, composes visual scene,
-    then runs cinematic postprocessing (camera, ambient, lighting) if those functions exist.
+    Main entry: takes script_text, auto-detects characters,
+    then runs cinematic postprocessing (camera, ambient, lighting).
     Returns path to final mp4 or None.
     """
     try:
         dialogues = detect_char_dialogues(script_text)
-        # Map names to known characters keywords
-        dialogues_mapped = [(map_to_known_character(n), t) for (n,t) in dialogues]
+        # Map names to known characters
+        dialogues_mapped = [(map_to_known_character(n), t) for n, t in dialogues]
         scene = compose_visual_scene_from_dialogues(dialogues_mapped)
+
         if not scene:
             return None
 
-        # optional postprocessing (use if functions defined earlier)
+        # 🎬 Optional postprocessing (use if functions defined)
         try:
-            # derive mood from full script if analyze_emotion exists
+            # derive mood from full script if analyze_emotion available
             mood = None
             if 'analyze_emotion' in globals():
                 mood = analyze_emotion(script_text)
             else:
                 mood = "neutral"
 
-            if 'apply_dynamic_camera_effects' in globals():
-                scene = apply_dynamic_camera_effects(scene, mood or "cinematic")
-            if 'add_ambient_soundscape' in globals():
-                # choose ambient based on mood
-                amb = "jungle" if "tiger" in script_text.lower() or "jungle" in script_text.lower() else ("calm" if mood=="sad" else "emotional")
+            if "apply_dynamic_camera_effects" in globals():
+                scene = apply_dynamic_camera_effects(scene, mood)
+
+            if "add_ambient_soundscape" in globals():
+                amb = "jungle" if "tiger" in script_text.lower() else "forest"
                 scene = add_ambient_soundscape(scene, amb)
-            if 'apply_cinematic_lighting' in globals():
-                scene = apply_cinematic_lighting(scene, mood or "neutral")
+
+            if "apply_cinematic_lighting" in globals():
+                scene = apply_cinematic_lighting(scene, mood)
+
+            return scene
 
         except Exception as e:
             log.exception("postprocessing failed: %s", e)
+            return None
 
-        return scene
     except Exception as e:
         log.exception("UCVE generation failed: %s", e)
         return None
