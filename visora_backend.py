@@ -13,6 +13,7 @@ Description:
 from flask import Flask, request, jsonify
 import os, json, uuid, datetime, logging as log
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
+from typing import Optional
 
 # Initialize Flask app
 app = Flask(__name__)
