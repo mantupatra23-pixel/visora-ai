@@ -10,6 +10,7 @@ gunicorn==21.2.0
 Werkzeug==3.0.3
 itsdangerous==2.2.0
 click==8.1.7
+flask-limiter==3.7.0  # ⚙️ Added Flask Limiter for API rate limit middleware
 
 # 🧠 Database + ORM
 SQLAlchemy==2.0.25
@@ -62,11 +63,12 @@ reindent==3.5.1
 # 🧩 Compatibility & Fix
 setuptools==75.2.0
 packaging==24.1
-open3d==0.17.0  # ✅ Added missing 3D rendering library
-torch==2.3.1
-torchvision==0.18.1
-torchaudio==2.3.1
-prometheus-client==0.20.0  # ✅ Added Prometheus client for metrics monitoring
+open3d==0.17.0
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.3.1+cpu
+torchvision==0.18.1+cpu
+torchaudio==2.3.1+cpu
+prometheus-client==0.20.0
 
 # ===============================================================
 # ✅ END OF REQUIREMENTS
