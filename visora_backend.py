@@ -18,12 +18,27 @@ from typing import Optional
 # Initialize Flask app
 app = Flask(__name__)
 
-# ------------------------------
 # 🔐 Configuration
-# ------------------------------
 BASE_DIR = os.getcwd()
 RENDER_PATH = os.path.join(BASE_DIR, "renders")
 os.makedirs(RENDER_PATH, exist_ok=True)
+
+# ===============================================================
+# 🧩 Flask Limiter (Safe Import + Initialization - UCVE v22 Final)
+# ===============================================================
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+
+    limiter = Limiter(
+        key_func=get_remote_address,
+        default_limits=["100 per minute"]
+    )
+    limiter.init_app(app)
+    print("✅ Flask-Limiter initialized successfully (UCVE v22 Final)")
+except Exception as e:
+    limiter = None
+    print(f"⚠️ Flask-Limiter disabled (reason: {e})")
 
 # ------------------------------
 # 🧠 AI Assistant (Placeholder)
@@ -3136,24 +3151,6 @@ def selfcheck():
         "modules": status,
         "uptime": str(datetime.datetime.now())
     })
-
-# ===============================================================
-# 🧩 Flask Limiter (Safe Import + Initialization - UCVE v22 Final)
-# ===============================================================
-try:
-    from flask_limiter import Limiter
-    from flask_limiter.util import get_remote_address
-
-    limiter = Limiter(
-        key_func=get_remote_address,
-        default_limits=["100 per minute"]
-    )
-
-    limiter.init_app(app)
-    print("✅ Flask-Limiter initialized successfully (UCVE v22 Final)")
-except Exception as e:
-    limiter = None
-    print(f"⚠️ Flask-Limiter disabled (reason: {e})")
 
 # ------------------------------
 # 🧩 App Runner
