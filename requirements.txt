@@ -66,6 +66,7 @@ open3d==0.17.0  # ✅ Added missing 3D rendering library
 torch==2.3.1
 torchvision==0.18.1
 torchaudio==2.3.1
+prometheus-client==0.20.0  # ✅ Added Prometheus client for metrics monitoring
 
 # ===============================================================
 # ✅ END OF REQUIREMENTS
