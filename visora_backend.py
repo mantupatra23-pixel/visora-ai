@@ -2180,8 +2180,6 @@ import threading
 import time
 import os
 from prometheus_client import Counter, Gauge, generate_latest, CollectorRegistry, CONTENT_TYPE_LATEST
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 
 # --------- Redis + RQ (optional) ----------
 REDIS_URL = os.getenv("REDIS_URL", None)
@@ -3138,6 +3136,20 @@ def selfcheck():
         "modules": status,
         "uptime": str(datetime.datetime.now())
     })
+
+# ===============================================================
+# 🚦 Flask Limiter (Rate Limit Protection - UCVE v22)
+# ===============================================================
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+# ✅ Correct initialization for Flask-Limiter v3.x
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=None,  # attach later
+    default_limits=["100 per minute"]
+)
+limiter.init_app(app)
 
 # ------------------------------
 # 🧩 App Runner
