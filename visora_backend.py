@@ -17,6 +17,8 @@ from typing import Optional
 
 # Initialize Flask app
 app = Flask(__name__)
+if limiter:
+    limiter.init_app(app)
 
 # ------------------------------
 # 🔐 Configuration
@@ -3138,21 +3140,22 @@ def selfcheck():
     })
 
 # ===============================================================
-# 🚦 Flask Limiter (Rate Limit Protection - UCVE v22)
+# 🚦 Flask Limiter (Safe Import + Init - UCVE v22)
 # ===============================================================
 try:
+    import flask_limiter
     from flask_limiter import Limiter
     from flask_limiter.util import get_remote_address
 
     limiter = Limiter(
         key_func=get_remote_address,
-        app=None,  # attach later
         default_limits=["100 per minute"]
     )
-    limiter.init_app(app)
-    print("✅ Flask-Limiter initialized successfully.")
+
+    print("✅ Flask-Limiter imported and initialized (UCVE v22)")
 except Exception as e:
-    print(f"⚠️ Flask-Limiter initialization skipped: {e}")
+    print(f"⚠️ Flask-Limiter not available: {e}")
+    limiter = None
 
 # ------------------------------
 # 🧩 App Runner
