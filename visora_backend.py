@@ -46,32 +46,58 @@ def assistant():
 
     return jsonify({"response": reply, "status": "ok"})
 
-# ------------------------------
-# 🎬 UCVE: Cinematic Video Generator
-# ------------------------------
+# ===============================================================
+# 🎬 UCVE: Cinematic Video Generator (with short/long selector)
+# ===============================================================
+
 @app.route("/generate_video", methods=["POST"])
 def generate_video():
     data = request.get_json() or {}
     script_text = data.get("script", "No script provided.")
+    video_type = data.get("video_type", "short").lower()  # user input or default short
     video_id = str(uuid.uuid4())
 
-    try:
-        out_file = os.path.join(RENDER_PATH, f"{video_id}.mp4")
+    # 🎞️ Choose config based on video type
+    if video_type == "short":
+        config = {
+            "duration_limit": 60,
+            "transition_speed": "fast",
+            "scene_complexity": "medium",
+            "music_mode": "dynamic"
+        }
+    else:
+        config = {
+            "duration_limit": 600,
+            "transition_speed": "cinematic",
+            "scene_complexity": "high",
+            "music_mode": "deep_ambient"
+        }
 
-        # Fake cinematic render (extend later)
+    try:
+        out_file = os.path.join(RENDER_PATH, f"{video_id}.txt")
+
+        # 🎥 Simulated render process (placeholder – actual render will replace)
         with open(out_file, "w") as f:
-            f.write(f"Rendered video for: {script_text}")
+            f.write(f"Rendered {video_type} video for: {script_text}\n")
+            f.write(f"Applied Config: {json.dumps(config, indent=2)}\n")
+
+        log.info(f"{video_type.capitalize()} video rendered successfully!")
 
         return jsonify({
-            "status": "success",
+            "status": "✅ success",
             "video_id": video_id,
+            "video_type": video_type,
+            "config_used": config,
             "file": out_file,
-            "message": "Cinematic render completed."
+            "message": f"{video_type.capitalize()} cinematic render completed successfully."
         })
 
     except Exception as e:
         log.exception("Video generation failed")
-        return jsonify({"status": "error", "message": str(e)})
+        return jsonify({
+            "status": "❌ error",
+            "message": str(e)
+        }), 500
 
 # ------------------------------
 # 💾 Health Check API
@@ -3078,6 +3104,40 @@ def delete_user_preset():
     db.session.delete(preset)
     db.session.commit()
     return jsonify({"status": "preset_deleted"})
+
+# ===============================================================
+# 🔍 SYSTEM HEALTH CHECK ROUTE
+# ===============================================================
+
+@app.route("/selfcheck", methods=["GET"])
+def selfcheck():
+    import importlib
+    modules = [
+        "flask", "torch", "open3d", "stripe",
+        "moviepy", "firebase_admin", "prometheus_client"
+    ]
+    status = {}
+
+    for m in modules:
+        try:
+            importlib.import_module(m)
+            status[m] = "✅ Loaded"
+        except Exception as e:
+            status[m] = f"❌ Missing ({str(e)})"
+
+    try:
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        status["torch_device"] = f"🧠 Torch running on {device}"
+    except:
+        status["torch_device"] = "⚠️ Torch not loaded"
+
+    return jsonify({
+        "app": "Visora AI Backend UCVE v22",
+        "status": "✅ OK",
+        "modules": status,
+        "uptime": str(datetime.datetime.now())
+    })
 
 # ------------------------------
 # 🧩 App Runner
