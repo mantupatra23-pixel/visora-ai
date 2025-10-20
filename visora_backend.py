@@ -10,8 +10,62 @@ Description:
   - Render + GitHub + Termux compatible
 """
 
+import librosa
+from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip, vfx
+import scipy.signal as sps
+import soundfile as sf
+from moviepy.editor import ImageClip, AudioFileClip, CompositeAudioClip
+from flask import request, jsonify
+from flask import send_file
+from flask_limiter.util import get_remote_address
+from flask_limiter import Limiter
+from prometheus_client import Counter, Gauge, generate_latest, CollectorRegistry, CONTENT_TYPE_LATEST
+import threading
+import signal
+import atexit
+from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip, vfx
+from PIL import Image
+import torchvision.transforms as T
+import torch.nn as nn
+import torch
+from typing import List, Tuple
+import open3d as o3d
+from moviepy.editor import *
+import cv2
+import time
+import stripe
+from flask import request, jsonify, abort
+import hashlib
+import hmac
+import decimal
+from collections import Counter
+import statistics
+from datetime import datetime
+from typing import List, Dict
+import math
+from PIL import Image, ImageDraw, ImageFont
+from firebase_admin import credentials, storage
+import firebase_admin
+from pydub import AudioSegment
+from pydub.generators import Sine
+import numpy as np
+from textblob import TextBlob
+from moviepy.editor import TextClip, CompositeVideoClip
+import re
+from pathlib import Path
+import logging as log
+import uuid
+import io
+import os
+import textblob
+import random
+from typing import Optional
 from flask import Flask, request, jsonify
-import os, json, uuid, datetime, logging as log
+import os
+import json
+import uuid
+import datetime
+import logging as log
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
 
 # Initialize Flask app
@@ -27,6 +81,8 @@ os.makedirs(RENDER_PATH, exist_ok=True)
 # ------------------------------
 # 🧠 AI Assistant (Placeholder)
 # ------------------------------
+
+
 @app.route("/assistant", methods=["POST"])
 def assistant():
     data = request.get_json() or {}
@@ -48,6 +104,8 @@ def assistant():
 # ------------------------------
 # 🎬 UCVE: Cinematic Video Generator
 # ------------------------------
+
+
 @app.route("/generate_video", methods=["POST"])
 def generate_video():
     data = request.get_json() or {}
@@ -75,6 +133,8 @@ def generate_video():
 # ------------------------------
 # 💾 Health Check API
 # ------------------------------
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({
@@ -83,13 +143,13 @@ def health():
         "server": "Visora Backend v2.0"
     })
 
+
 # ====================================================
 # 🎬 UCVE: Universal Cinematic Video Engine v2.0
 # ====================================================
-import random
-import textblob
 
 # Emotion-based cinematic tone detection
+
 def analyze_emotion(script_text: str) -> str:
     try:
         blob = textblob.TextBlob(script_text)
@@ -104,6 +164,7 @@ def analyze_emotion(script_text: str) -> str:
         log.exception("Emotion analysis failed")
         return "neutral"
 
+
 # Cinematic background soundscape mapping
 CINEMATIC_SOUNDS = {
     "happy": ["forest_birds.mp3", "calm_wind.mp3", "soft_piano.mp3"],
@@ -112,12 +173,18 @@ CINEMATIC_SOUNDS = {
 }
 
 # Simulated ambient soundscape (placeholder)
+
+
 def add_ambient_sound(scene_path: str, mood: str) -> str:
-    amb = random.choice(CINEMATIC_SOUNDS.get(mood, CINEMATIC_SOUNDS["neutral"]))
+    amb = random.choice(
+        CINEMATIC_SOUNDS.get(
+            mood, CINEMATIC_SOUNDS["neutral"]))
     log.info(f"Ambient sound added: {amb}")
     return f"{scene_path} + {amb}"
 
 # Dynamic camera effect simulation
+
+
 def apply_dynamic_camera(scene_path: str, mood: str) -> str:
     effects = {
         "happy": "smooth_pan_zoom",
@@ -129,6 +196,8 @@ def apply_dynamic_camera(scene_path: str, mood: str) -> str:
     return f"{scene_path} + {effect}"
 
 # Cinematic lighting postprocessor
+
+
 def apply_cinematic_lighting(scene_path: str, mood: str) -> str:
     lighting = {
         "happy": "bright_warm_tone",
@@ -140,6 +209,8 @@ def apply_cinematic_lighting(scene_path: str, mood: str) -> str:
     return f"{scene_path} + {tone}"
 
 # Main cinematic processor
+
+
 def generate_cinematic_scene(script_text: str) -> str:
     try:
         mood = analyze_emotion(script_text)
@@ -181,14 +252,10 @@ def ucve_generate():
         log.exception("UCVE endpoint failed")
         return jsonify({"status": "error", "message": str(e)})
 
+
 # ====================================================
 # 🔊 TTS + Auto-dub module (ElevenLabs primary, gTTS fallback)
 # ====================================================
-import os
-import io
-import uuid
-import logging as log
-from pathlib import Path
 
 # Try optional imports
 MOVIEPY_AVAILABLE = False
@@ -229,7 +296,11 @@ except Exception:
 OUTPUT_DIR = Path("outputs")
 OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
-def synthesize_tts(text: str, voice: str = "alloy", filename: str = None) -> str:
+
+def synthesize_tts(
+        text: str,
+        voice: str = "alloy",
+        filename: str = None) -> str:
     """
     Generate speech audio from `text`.
     Priorities:
@@ -250,8 +321,10 @@ def synthesize_tts(text: str, voice: str = "alloy", filename: str = None) -> str
             try:
                 if 'eleven_set_api_key' in globals():
                     eleven_set_api_key(ele_key)
-                    audio_bytes = eleven_generate(text=text, voice=voice, model="eleven_monolingual_v1")
-                    # SDK may return bytes-like object or a path; handle bytes-like
+                    audio_bytes = eleven_generate(
+                        text=text, voice=voice, model="eleven_monolingual_v1")
+                    # SDK may return bytes-like object or a path; handle
+                    # bytes-like
                     if isinstance(audio_bytes, (bytes, bytearray)):
                         with open(filename, "wb") as f:
                             f.write(audio_bytes)
@@ -266,7 +339,8 @@ def synthesize_tts(text: str, voice: str = "alloy", filename: str = None) -> str
                         "Content-Type": "application/json"
                     }
                     payload = {"text": text, "voice": voice}
-                    resp = requests.post(url, json=payload, headers=headers, stream=True, timeout=60)
+                    resp = requests.post(
+                        url, json=payload, headers=headers, stream=True, timeout=60)
                     resp.raise_for_status()
                     with open(filename, "wb") as f:
                         for chunk in resp.iter_content(chunk_size=8192):
@@ -291,9 +365,14 @@ def synthesize_tts(text: str, voice: str = "alloy", filename: str = None) -> str
             log.exception("gTTS failed: %s", e)
 
     # If nothing worked, raise
-    raise RuntimeError("No TTS backend available (set ELEVENLABS_API_KEY or install gTTS)")
+    raise RuntimeError(
+        "No TTS backend available (set ELEVENLABS_API_KEY or install gTTS)")
 
-def attach_audio_to_video(video_path: str, audio_path: str, out_path: str = None) -> str:
+
+def attach_audio_to_video(
+        video_path: str,
+        audio_path: str,
+        out_path: str = None) -> str:
     """
     Attach audio (audio_path) to existing video (video_path) using MoviePy.
     Returns output file path.
@@ -313,7 +392,8 @@ def attach_audio_to_video(video_path: str, audio_path: str, out_path: str = None
         vclip = VideoFileClip(video_path)
         aclip = AudioFileClip(audio_path)
 
-        # If audio shorter or longer, we set audio to video duration by subclip or loop
+        # If audio shorter or longer, we set audio to video duration by subclip
+        # or loop
         if aclip.duration < vclip.duration:
             # loop audio if short (simple approach using pydub if available)
             if PYDUB_AVAILABLE:
@@ -322,7 +402,8 @@ def attach_audio_to_video(video_path: str, audio_path: str, out_path: str = None
                 times = int(vclip.duration / (sound.duration_seconds or 1)) + 1
                 combined = sound * times
                 tmp_loop = OUTPUT_DIR / f"looped_{uuid.uuid4().hex[:8]}.mp3"
-                combined[:int(vclip.duration * 1000)].export(str(tmp_loop), format="mp3")
+                combined[:int(vclip.duration * 1000)
+                         ].export(str(tmp_loop), format="mp3")
                 aclip = AudioFileClip(str(tmp_loop))
             else:
                 # simple subclip (audio will stop before video ends)
@@ -331,7 +412,16 @@ def attach_audio_to_video(video_path: str, audio_path: str, out_path: str = None
             aclip = aclip.subclip(0, vclip.duration)
 
         final = vclip.set_audio(aclip)
-        final.write_videofile(str(out_path), codec="libx264", audio_codec="aac", temp_audiofile=str(OUTPUT_DIR / "temp-audio.m4a"), remove_temp=True, threads=2, logger=None)
+        final.write_videofile(
+            str(out_path),
+            codec="libx264",
+            audio_codec="aac",
+            temp_audiofile=str(
+                OUTPUT_DIR /
+                "temp-audio.m4a"),
+            remove_temp=True,
+            threads=2,
+            logger=None)
         # close clips
         try:
             final.close()
@@ -348,6 +438,8 @@ def attach_audio_to_video(video_path: str, audio_path: str, out_path: str = None
         raise
 
 # Flask endpoint: synthesize TTS and attach to given video (or UCVE output)
+
+
 @app.route("/synthesize_and_attach", methods=["POST"])
 def synthesize_and_attach():
     """
@@ -374,7 +466,8 @@ def synthesize_and_attach():
             if "generate_cinematic_scene" in globals():
                 video_path = generate_cinematic_scene(script)
             else:
-                return jsonify({"error": "no video path provided and UCVE generator not found"}), 400
+                return jsonify(
+                    {"error": "no video path provided and UCVE generator not found"}), 400
 
         # generate tts
         tts_file = synthesize_tts(script, voice=voice)
@@ -388,10 +481,10 @@ def synthesize_and_attach():
         log.exception("synthesize_and_attach failed")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 # ====================================================
 # 🎭 UCVE v3: Multi-Character Dialogue + Voice Engine
 # ====================================================
-import re
 
 # Character voice map (expandable / dynamic)
 CHARACTER_VOICES = {
@@ -400,6 +493,7 @@ CHARACTER_VOICES = {
     "monkey": "bella",
     "human": "antoni",
 }
+
 
 def detect_dialogues(script_text: str):
     """
@@ -418,6 +512,7 @@ def detect_dialogues(script_text: str):
     if not dialogues:
         dialogues = [("narrator", script_text)]
     return dialogues
+
 
 def generate_multi_voice_scene(script_text: str):
     """
@@ -446,7 +541,8 @@ def generate_multi_voice_scene(script_text: str):
             combined = AudioSegment.empty()
             for clip in audio_clips:
                 combined += AudioSegment.from_file(clip)
-            merged_path = OUTPUT_DIR / f"multi_voice_{uuid.uuid4().hex[:8]}.mp3"
+            merged_path = OUTPUT_DIR / \
+                f"multi_voice_{uuid.uuid4().hex[:8]}.mp3"
             combined.export(str(merged_path), format="mp3")
         else:
             merged_path = audio_clips[0]  # fallback to first voice
@@ -493,11 +589,11 @@ def multi_voice_scene():
         log.exception("multi_voice_scene endpoint failed")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 # ====================================================
 # 💬 UCVE v4: Subtitle Generator + Translator + Caption Burn-in
 # ====================================================
-from moviepy.editor import TextClip, CompositeVideoClip
-from textblob import TextBlob
+
 
 def generate_subtitles(script_text: str, lang_target: str = "en"):
     """
@@ -516,6 +612,7 @@ def generate_subtitles(script_text: str, lang_target: str = "en"):
         start_time = end_time
     return subs
 
+
 def translate_text(text: str, target_lang: str = "en"):
     """
     Translate using TextBlob (Google Translate backend).
@@ -530,7 +627,11 @@ def translate_text(text: str, target_lang: str = "en"):
         log.warning("Translation failed for %s: %s", text, e)
         return text
 
-def burn_subtitles_to_video(video_path: str, script_text: str, lang_target: str = "en"):
+
+def burn_subtitles_to_video(
+        video_path: str,
+        script_text: str,
+        lang_target: str = "en"):
     """
     Overlay cinematic subtitles (translated if requested) on video using MoviePy.
     Returns path to new subtitled mp4.
@@ -552,13 +653,22 @@ def burn_subtitles_to_video(video_path: str, script_text: str, lang_target: str 
             stroke_color='black',
             stroke_width=2,
             method='caption',
-            size=(vclip.w - 100, None)
-        ).set_position(('center', 'bottom')).set_duration(end - start).set_start(start)
+            size=(
+                vclip.w - 100,
+                None)).set_position(
+            ('center',
+             'bottom')).set_duration(
+            end - start).set_start(start)
         subtitle_clips.append(txt_clip)
 
     final = CompositeVideoClip([vclip, *subtitle_clips])
     out_path = OUTPUT_DIR / f"subtitled_{uuid.uuid4().hex[:8]}.mp4"
-    final.write_videofile(str(out_path), codec="libx264", audio_codec="aac", threads=2, logger=None)
+    final.write_videofile(
+        str(out_path),
+        codec="libx264",
+        audio_codec="aac",
+        threads=2,
+        logger=None)
 
     # Cleanup
     try:
@@ -601,12 +711,11 @@ def subtitles_endpoint():
         log.exception("Subtitle generation failed")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 # ====================================================
 # 🎶 UCVE v5: Emotion-based Background Music Composer
 # ====================================================
-import numpy as np
-from pydub.generators import Sine
-from pydub import AudioSegment
+
 
 def compose_emotion_music(mood: str, duration: float = 20.0) -> str:
     """
@@ -616,7 +725,7 @@ def compose_emotion_music(mood: str, duration: float = 20.0) -> str:
     base_freqs = {
         "happy": [440, 660, 880],  # A major (bright)
         "sad": [220, 330, 440],    # A minor (dark)
-        "neutral": [392, 523, 659] # G major (soft)
+        "neutral": [392, 523, 659]  # G major (soft)
     }
     freqs = base_freqs.get(mood, base_freqs["neutral"])
 
@@ -677,13 +786,13 @@ def auto_music_scene():
         log.exception("Auto music generation failed")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 # ====================================================
 # ☁️ UCVE v6: Firebase Cloud Upload + Auto Sync
 # ====================================================
-import firebase_admin
-from firebase_admin import credentials, storage
 
 FIREBASE_BUCKET = None
+
 
 def init_firebase():
     """
@@ -693,9 +802,8 @@ def init_firebase():
     try:
         if not firebase_admin._apps:
             cred = credentials.Certificate("visora-firebase-key.json")
-            firebase_admin.initialize_app(cred, {
-                "storageBucket": os.getenv("FIREBASE_BUCKET_NAME", "your-bucket-name.appspot.com")
-            })
+            firebase_admin.initialize_app(cred, {"storageBucket": os.getenv(
+                "FIREBASE_BUCKET_NAME", "your-bucket-name.appspot.com")})
         FIREBASE_BUCKET = storage.bucket()
         log.info("🔥 Firebase initialized successfully.")
     except Exception as e:
@@ -703,7 +811,9 @@ def init_firebase():
         FIREBASE_BUCKET = None
 
 
-def upload_to_firebase(local_path: str, remote_path: str = None) -> Optional[str]:
+def upload_to_firebase(
+        local_path: str,
+        remote_path: str = None) -> Optional[str]:
     """
     Upload file to Firebase Storage and return public URL.
     """
@@ -770,11 +880,10 @@ def auto_sync():
         log.exception("Auto sync failed")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 # ====================================================
 # 🧠 UCVE v7: AI Actor Generator (Virtual Human + Lip Sync)
 # ====================================================
-from PIL import Image, ImageDraw, ImageFont
-import math
 
 ACTOR_MODELS = {
     "male": "actors/male_default.png",
@@ -782,6 +891,7 @@ ACTOR_MODELS = {
     "child": "actors/child_default.png",
     "old": "actors/old_default.png"
 }
+
 
 def generate_actor_image(actor_type: str = "male", text: str = "") -> str:
     """
@@ -794,7 +904,8 @@ def generate_actor_image(actor_type: str = "male", text: str = "") -> str:
     # Overlay text
     draw = ImageDraw.Draw(img)
     font = ImageFont.load_default()
-    draw.text((20, img.height - 40), f"{actor_type.title()} Role", fill=(255, 255, 0), font=font)
+    draw.text((20, img.height - 40),
+              f"{actor_type.title()} Role", fill=(255, 255, 0), font=font)
 
     out_path = OUTPUT_DIR / f"actor_{actor_type}_{uuid.uuid4().hex[:6]}.png"
     img.save(out_path)
@@ -818,7 +929,15 @@ def simulate_lip_sync(image_path: str, audio_path: str) -> str:
         mod = img.copy()
         draw = ImageDraw.Draw(mod)
         offset = 3 * math.sin(i)
-        draw.ellipse((90, 250 + offset, 150, 260 + offset), fill=(255, 180, 180))
+        draw.ellipse(
+            (90,
+             250 + offset,
+             150,
+             260 + offset),
+            fill=(
+                255,
+                180,
+                180))
         temp_path = TMP_FOLDER / f"frame_{i}.png"
         mod.save(temp_path)
         frames.append(str(temp_path))
@@ -828,14 +947,21 @@ def simulate_lip_sync(image_path: str, audio_path: str) -> str:
     final = clip.set_audio(aclip)
 
     out_path = OUTPUT_FOLDER / f"actor_lipsync_{uuid.uuid4().hex[:8]}.mp4"
-    final.write_videofile(str(out_path), codec="libx264", audio_codec="aac", logger=None)
+    final.write_videofile(
+        str(out_path),
+        codec="libx264",
+        audio_codec="aac",
+        logger=None)
 
     final.close()
     log.info(f"🗣️ Lip-synced actor render complete: {out_path}")
     return str(out_path)
 
 
-def generate_virtual_actor_scene(script_text: str, actor_type: str = "male", mood: str = None):
+def generate_virtual_actor_scene(
+        script_text: str,
+        actor_type: str = "male",
+        mood: str = None):
     """
     Main virtual actor video generator.
     """
@@ -878,13 +1004,13 @@ def virtual_actor():
         log.exception("Virtual actor generation failed")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 # ====================================================
 # 🎥 UCVE v8: AI Camera Director (shot planner + director)
 # ====================================================
-import math
-from typing import List, Dict
 
 # Simple planner: create shot intents from script keywords
+
 def plan_camera_shots(script_text: str) -> List[Dict]:
     """
     Return list of shot descriptors:
@@ -899,7 +1025,15 @@ def plan_camera_shots(script_text: str) -> List[Dict]:
     shots.append({"type": "wide", "duration": 3.0, "intensity": 0.2})
 
     # If script contains action verbs -> add action shots
-    action_keywords = ["run", "chase", "fight", "attack", "explode", "roar", "jump", "fall"]
+    action_keywords = [
+        "run",
+        "chase",
+        "fight",
+        "attack",
+        "explode",
+        "roar",
+        "jump",
+        "fall"]
     if any(k in txt for k in action_keywords):
         shots.append({"type": "action", "duration": 4.0, "intensity": 0.9})
 
@@ -934,7 +1068,8 @@ def apply_camera_director(video_path: str, shot_plan: List[Dict]) -> str:
     t_cursor = 0.0
     total_duration = base_clip.duration
 
-    # total duration distributed among shots roughly; if mismatch, scale durations
+    # total duration distributed among shots roughly; if mismatch, scale
+    # durations
     plan_total = sum(s.get("duration", 3.0) for s in shot_plan) or 1.0
     scale = total_duration / plan_total
 
@@ -962,8 +1097,20 @@ def apply_camera_director(video_path: str, shot_plan: List[Dict]) -> str:
             elif stype == "action":
                 # quick zooms + shake (rotate small oscillation)
                 seg = seg.fx(vfx.colorx, 1.1)
-                seg = seg.resize(lambda t: 1.0 + 0.02 * math.sin(6 * t * intensity))
-                seg = seg.fx(vfx.rotate, lambda t: 0.6 * math.sin(12 * t * intensity))
+                seg = seg.resize(
+                    lambda t: 1.0 +
+                    0.02 *
+                    math.sin(
+                        6 *
+                        t *
+                        intensity))
+                seg = seg.fx(
+                    vfx.rotate,
+                    lambda t: 0.6 *
+                    math.sin(
+                        12 *
+                        t *
+                        intensity))
                 seg = seg.fx(vfx.speedx, 1.0 + 0.12 * intensity)
             elif stype == "dramatic":
                 # slow dolly in + strong contrast
@@ -991,7 +1138,13 @@ def apply_camera_director(video_path: str, shot_plan: List[Dict]) -> str:
 
     out_path = OUTPUT_DIR / f"directed_{uuid.uuid4().hex[:8]}.mp4"
     # write out with reasonable settings
-    final.write_videofile(str(out_path), fps=24, codec="libx264", audio_codec="aac", threads=2, logger=None)
+    final.write_videofile(
+        str(out_path),
+        fps=24,
+        codec="libx264",
+        audio_codec="aac",
+        threads=2,
+        logger=None)
 
     try:
         final.close()
@@ -1003,7 +1156,8 @@ def apply_camera_director(video_path: str, shot_plan: List[Dict]) -> str:
     return str(out_path)
 
 
-# Flask endpoint to run camera director on a video (or generate UCVE then direct)
+# Flask endpoint to run camera director on a video (or generate UCVE then
+# direct)
 @app.route("/camera_direct", methods=["POST"])
 def camera_direct_endpoint():
     """
@@ -1031,7 +1185,8 @@ def camera_direct_endpoint():
             base_video = video_path
 
         # plan shots (script preferred)
-        plan = plan_camera_shots(script if script else " ".join([str(x) for x in []]))
+        plan = plan_camera_shots(
+            script if script else " ".join([str(x) for x in []]))
         final_file = apply_camera_director(base_video, plan)
         # optionally upload to firebase if available
         cloud_url = None
@@ -1041,20 +1196,22 @@ def camera_direct_endpoint():
             except Exception:
                 cloud_url = None
 
-        return jsonify({"status": "success", "file": final_file, "cloud_url": cloud_url})
+        return jsonify(
+            {"status": "success", "file": final_file, "cloud_url": cloud_url})
     except Exception as e:
         log.exception("camera_direct endpoint failed: %s", e)
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 # ====================================================
 # 👥 UCVE v9: Real-Time Collaboration + Cloud Edit System
 # ====================================================
-from datetime import datetime
 
 try:
     from firebase_admin import db as firebase_db
 except Exception:
     firebase_db = None
+
 
 def init_realtime_db():
     """Ensure Firebase Realtime DB initialized."""
@@ -1070,6 +1227,7 @@ def init_realtime_db():
     except Exception as e:
         log.warning("Realtime DB init failed: %s", e)
 
+
 def save_project_state(project_id: str, data: dict):
     """Push project JSON snapshot to Firebase DB."""
     try:
@@ -1082,6 +1240,7 @@ def save_project_state(project_id: str, data: dict):
     except Exception as e:
         log.warning("Project sync failed: %s", e)
 
+
 def load_project_state(project_id: str) -> dict:
     """Fetch project JSON snapshot from Firebase."""
     if not firebase_db:
@@ -1093,6 +1252,7 @@ def load_project_state(project_id: str) -> dict:
     except Exception as e:
         log.warning("Fetch project failed: %s", e)
         return {}
+
 
 @app.route("/collab/create", methods=["POST"])
 def collab_create():
@@ -1113,7 +1273,8 @@ def collab_create():
         "edits": []
     }
     save_project_state(project_id, state)
-    return jsonify({"status":"success","project_id":project_id})
+    return jsonify({"status": "success", "project_id": project_id})
+
 
 @app.route("/collab/edit", methods=["POST"])
 def collab_edit():
@@ -1124,16 +1285,19 @@ def collab_edit():
     """
     data = request.get_json() or {}
     pid = data.get("project_id")
-    user = data.get("user","anon")
-    edit = data.get("edit","")
+    user = data.get("user", "anon")
+    edit = data.get("edit", "")
     if not pid or not edit:
-        return jsonify({"error":"project_id and edit required"}),400
+        return jsonify({"error": "project_id and edit required"}), 400
     state = load_project_state(pid)
     edits = state.get("edits", [])
-    edits.append({"user":user,"edit":edit,"time":datetime.utcnow().isoformat()})
+    edits.append({"user": user, "edit": edit,
+                 "time": datetime.utcnow().isoformat()})
     state["edits"] = edits
     save_project_state(pid, state)
-    return jsonify({"status":"ok","project_id":pid,"total_edits":len(edits)})
+    return jsonify({"status": "ok", "project_id": pid,
+                   "total_edits": len(edits)})
+
 
 @app.route("/collab/fetch", methods=["GET"])
 def collab_fetch():
@@ -1142,16 +1306,19 @@ def collab_fetch():
     """
     pid = request.args.get("project_id")
     if not pid:
-        return jsonify({"error":"project_id required"}),400
+        return jsonify({"error": "project_id required"}), 400
     data = load_project_state(pid)
     return jsonify(data)
 
 # simple AI merge stub (placeholder for GPT suggestions)
+
+
 def merge_script_edits(base_script: str, edits: list) -> str:
     merged = base_script
     for e in edits:
         merged += f"\n# {e['user']} suggestion: {e['edit']}"
     return merged
+
 
 @app.route("/collab/merge", methods=["POST"])
 def collab_merge():
@@ -1162,14 +1329,17 @@ def collab_merge():
     data = request.get_json() or {}
     pid = data.get("project_id")
     state = load_project_state(pid)
-    merged_script = merge_script_edits(state.get("script",""), state.get("edits",[]))
-    return jsonify({"status":"merged","merged_script":merged_script})
+    merged_script = merge_script_edits(
+        state.get(
+            "script", ""), state.get(
+            "edits", []))
+    return jsonify({"status": "merged", "merged_script": merged_script})
+
 
 # ====================================================
 # 💼 UCVE v10: AI Project Manager Dashboard & Analytics
 # ====================================================
-import statistics
-from collections import Counter
+
 
 def compute_dashboard_metrics():
     """
@@ -1182,7 +1352,9 @@ def compute_dashboard_metrics():
     total_credits = sum(u.credits for u in UserProfile.query.all())
 
     # derive simple ratios
-    success_rate = round((success_jobs / videos) * 100, 2) if videos > 0 else 0.0
+    success_rate = round(
+        (success_jobs / videos) * 100,
+        2) if videos > 0 else 0.0
     fail_rate = 100 - success_rate
 
     return {
@@ -1195,12 +1367,16 @@ def compute_dashboard_metrics():
         "total_credits": total_credits
     }
 
+
 def get_trending_templates():
     """
     Detect trending template categories by usage frequency.
     """
-    tdata = TemplateCatalog.query.order_by(TemplateCatalog.trending_score.desc()).limit(10).all()
-    return [{"name": t.name, "category": t.category, "score": t.trending_score} for t in tdata]
+    tdata = TemplateCatalog.query.order_by(
+        TemplateCatalog.trending_score.desc()).limit(10).all()
+    return [{"name": t.name, "category": t.category,
+             "score": t.trending_score} for t in tdata]
+
 
 def get_active_users(limit: int = 5):
     """
@@ -1221,6 +1397,7 @@ def get_active_users(limit: int = 5):
             })
     return out
 
+
 def analyze_system_health():
     """
     Create a simple health summary.
@@ -1240,11 +1417,13 @@ def analyze_system_health():
 
     return " | ".join(msg)
 
+
 def generate_ai_insights():
     """
     Analyze video titles and scripts for trending topics using TextBlob sentiment.
     """
-    vids = UserVideo.query.order_by(UserVideo.created_at.desc()).limit(50).all()
+    vids = UserVideo.query.order_by(
+        UserVideo.created_at.desc()).limit(50).all()
     categories = []
     sentiments = []
     for v in vids:
@@ -1264,6 +1443,7 @@ def generate_ai_insights():
         "message": "Viewers reacting positively!" if avg_sent > 0 else "Content trend: neutral or mixed."
     }
 
+
 @app.route("/dashboard/summary", methods=["GET"])
 def dashboard_summary():
     data = compute_dashboard_metrics()
@@ -1271,24 +1451,22 @@ def dashboard_summary():
     data["top_users"] = get_active_users()
     return jsonify(data)
 
+
 @app.route("/dashboard/trending", methods=["GET"])
 def dashboard_trending():
     t = get_trending_templates()
     return jsonify({"trending": t})
+
 
 @app.route("/dashboard/insights", methods=["GET"])
 def dashboard_insights():
     info = generate_ai_insights()
     return jsonify(info)
 
+
 # ====================================================
 # 💰 UCVE v11: Monetization Engine (Payments, Credits, Plans, Referrals)
 # ====================================================
-import os
-import decimal
-import hmac
-import hashlib
-from flask import request, jsonify, abort
 
 # --- env / keys (set these in Render / Termux env) ---
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")            # sk_live_xxx
@@ -1296,7 +1474,9 @@ RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
 PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID")
 PAYPAL_SECRET = os.getenv("PAYPAL_SECRET")
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "visora-webhook-secret")  # for simple verification
+WEBHOOK_SECRET = os.getenv(
+    "WEBHOOK_SECRET",
+    "visora-webhook-secret")  # for simple verification
 
 # try optional SDK imports
 STRIPE_AVAILABLE = False
@@ -1325,11 +1505,16 @@ except Exception as e:
 # ---------- DB helpers and simple models usage ----------
 # Uses existing UserProfile, Plan, UserVideo models from your DB
 
+
 def get_plan_by_name(name: str):
     p = Plan.query.filter_by(name=name).first()
     return p
 
-def create_credit_transaction(user_email: str, amount: int, reason: str = "adjust"):
+
+def create_credit_transaction(
+        user_email: str,
+        amount: int,
+        reason: str = "adjust"):
     # store as a simple UserVideo meta or extend DB in future
     u = UserProfile.query.filter_by(email=user_email).first()
     if not u:
@@ -1339,6 +1524,8 @@ def create_credit_transaction(user_email: str, amount: int, reason: str = "adjus
     return {"email": u.email, "credits": u.credits}
 
 # ---------- Public: list plans ----------
+
+
 @app.route("/plans", methods=["GET"])
 def public_plans():
     plans = Plan.query.all()
@@ -1348,6 +1535,8 @@ def public_plans():
     return jsonify({"plans": out})
 
 # ---------- Create Stripe PaymentIntent (client-side) ----------
+
+
 @app.route("/create_stripe_intent", methods=["POST"])
 def create_stripe_intent():
     """
@@ -1362,9 +1551,10 @@ def create_stripe_intent():
 
     p = get_plan_by_name(plan_name) if plan_name else None
     if not p:
-        return jsonify({"error":"plan not found"}), 404
+        return jsonify({"error": "plan not found"}), 404
 
-    # price in rupees or string -> convert to cents (Stripe expects smallest unit)
+    # price in rupees or string -> convert to cents (Stripe expects smallest
+    # unit)
     try:
         amt = decimal.Decimal(str(p.price))
     except Exception:
@@ -1377,25 +1567,31 @@ def create_stripe_intent():
     credits_used = 0
     if use_credits and user and user.credits > 0:
         # example: 1 credit = ₹1 (adjust as your system)
-        credit_value = int(min(user.credits, amount_cents // 100))  # in rupee-equivalent
+        # in rupee-equivalent
+        credit_value = int(min(user.credits, amount_cents // 100))
         credits_used = credit_value
         amount_cents = max(0, amount_cents - (credit_value * 100))
 
     if not STRIPE_AVAILABLE:
-        return jsonify({"error":"Stripe not configured on server"}), 501
+        return jsonify({"error": "Stripe not configured on server"}), 501
 
     try:
         intent = stripe.PaymentIntent.create(
             amount=amount_cents,
             currency="inr",
-            metadata={"user_email": user_email, "plan": plan_name, "credits_used": credits_used}
-        )
-        return jsonify({"client_secret": intent.client_secret, "amount": amount_cents})
+            metadata={
+                "user_email": user_email,
+                "plan": plan_name,
+                "credits_used": credits_used})
+        return jsonify(
+            {"client_secret": intent.client_secret, "amount": amount_cents})
     except Exception as e:
         log.exception("Stripe create intent failed")
-        return jsonify({"error":"stripe error", "details": str(e)}), 500
+        return jsonify({"error": "stripe error", "details": str(e)}), 500
 
-# ---------- Stripe webhook to confirm payment and allocate credits / plan ----------
+# ---------- Stripe webhook to confirm payment and allocate credits / plan
+
+
 @app.route("/webhook/stripe", methods=["POST"])
 def stripe_webhook():
     payload = request.data
@@ -1403,17 +1599,29 @@ def stripe_webhook():
     try:
         # if you have stripe webhook secret, verify here. else simple check
         if STRIPE_AVAILABLE and os.getenv("STRIPE_WEBHOOK_SECRET"):
-            event = stripe.Webhook.construct_event(payload, sig_header, os.getenv("STRIPE_WEBHOOK_SECRET"))
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, os.getenv("STRIPE_WEBHOOK_SECRET"))
         else:
             event = json.loads(payload)
     except Exception as e:
         log.exception("Webhook verification failed: %s", e)
-        return jsonify({"error":"invalid payload"}), 400
+        return jsonify({"error": "invalid payload"}), 400
 
     # handle event types
-    etype = event.get("type") if isinstance(event, dict) else getattr(event, "type", None)
-    dataobj = event.get("data", {}).get("object", {}) if isinstance(event, dict) else {}
-    if etype in ("payment_intent.succeeded", "payment_intent.payment_failed", "payment_intent.amount_capturable_updated"):
+    etype = event.get("type") if isinstance(
+        event, dict) else getattr(
+        event, "type", None)
+    dataobj = event.get(
+        "data",
+        {}).get(
+        "object",
+        {}) if isinstance(
+            event,
+        dict) else {}
+    if etype in (
+        "payment_intent.succeeded",
+        "payment_intent.payment_failed",
+            "payment_intent.amount_capturable_updated"):
         # on success allocate plan / credits
         if etype == "payment_intent.succeeded":
             metadata = dataobj.get("metadata", {})
@@ -1427,10 +1635,15 @@ def stripe_webhook():
                     u.credits = max(0, (u.credits or 0) - credits_used)
                     u.plan = plan_name or u.plan
                     db.session.commit()
-            log.info("Stripe payment succeeded for %s plan=%s", email, plan_name)
-    return jsonify({"status":"ok"})
+            log.info(
+                "Stripe payment succeeded for %s plan=%s",
+                email,
+                plan_name)
+    return jsonify({"status": "ok"})
 
 # ---------- Razorpay order creation (server stub) ----------
+
+
 @app.route("/create_razorpay_order", methods=["POST"])
 def create_razorpay_order():
     data = request.get_json() or {}
@@ -1438,16 +1651,19 @@ def create_razorpay_order():
     receipt = data.get("receipt", f"rcpt_{uuid.uuid4().hex[:8]}")
     if not RAZORPAY_AVAILABLE:
         # fallback: return stub that frontend can use to call Razorpay checkout
-        return jsonify({"error":"Razorpay SDK not configured on server"}), 501
+        return jsonify({"error": "Razorpay SDK not configured on server"}), 501
     try:
         client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-        order = client.order.create({"amount": amount, "currency": "INR", "receipt": receipt})
+        order = client.order.create(
+            {"amount": amount, "currency": "INR", "receipt": receipt})
         return jsonify(order)
     except Exception as e:
         log.exception("Razorpay create order failed")
-        return jsonify({"error":"razorpay error", "details": str(e)}), 500
+        return jsonify({"error": "razorpay error", "details": str(e)}), 500
 
 # ---------- PayPal create order (simple REST stub) ----------
+
+
 @app.route("/create_paypal_order", methods=["POST"])
 def create_paypal_order():
     data = request.get_json() or {}
@@ -1456,33 +1672,39 @@ def create_paypal_order():
     if not PAYPAL_AVAILABLE:
         # if requests exists, we can attempt REST with client id/secret
         if not (PAYPAL_CLIENT_ID and PAYPAL_SECRET):
-            return jsonify({"error":"PayPal not configured"}), 501
+            return jsonify({"error": "PayPal not configured"}), 501
     # NOTE: Implement your server-side PayPal integration per PayPal docs.
-    return jsonify({"error":"Implement PayPal server integration for production"}), 501
+    return jsonify(
+        {"error": "Implement PayPal server integration for production"}), 501
+
 
 # ---------- Promo codes (simple in-memory / DB-backed) ----------
 PROMO_CODES = {
-    "WELCOME50": {"type":"percent","value":50, "uses_left":100},
-    "FREE10": {"type":"flat","value":10, "uses_left":50}
+    "WELCOME50": {"type": "percent", "value": 50, "uses_left": 100},
+    "FREE10": {"type": "flat", "value": 10, "uses_left": 50}
 }
+
 
 @app.route("/apply_promo", methods=["POST"])
 def apply_promo():
     data = request.get_json() or {}
     code = (data.get("code") or "").upper()
-    price = decimal.Decimal(str(data.get("price","0")))
+    price = decimal.Decimal(str(data.get("price", "0")))
     if not code or code not in PROMO_CODES:
-        return jsonify({"error":"invalid promo"}), 404
+        return jsonify({"error": "invalid promo"}), 404
     p = PROMO_CODES[code]
     if p["uses_left"] <= 0:
-        return jsonify({"error":"promo exhausted"}), 410
+        return jsonify({"error": "promo exhausted"}), 410
     if p["type"] == "percent":
         new_price = price * (decimal.Decimal(100 - p["value"]) / 100)
     else:
-        new_price = max(decimal.Decimal("0"), price - decimal.Decimal(str(p["value"])))
+        new_price = max(decimal.Decimal("0"),
+                        price - decimal.Decimal(str(p["value"])))
     return jsonify({"original": str(price), "discounted": str(new_price)})
 
 # ---------- Referral system ----------
+
+
 @app.route("/redeem_referral", methods=["POST"])
 def redeem_referral():
     """
@@ -1493,7 +1715,7 @@ def redeem_referral():
     email = data.get("user_email")
     ref = data.get("ref_code")
     if not email or not ref:
-        return jsonify({"error":"missing params"}), 400
+        return jsonify({"error": "missing params"}), 400
 
     # for demo: assume ref exist and award credits
     inviter_email = f"inviter_{ref}@visora.com"  # in prod, map properly
@@ -1508,53 +1730,62 @@ def redeem_referral():
         if inviter:
             inviter.credits = (inviter.credits or 0) + 20
         db.session.commit()
-        return jsonify({"status":"ok","user_credits": u.credits, "inviter": inviter_email})
+        return jsonify({"status": "ok",
+                        "user_credits": u.credits,
+                        "inviter": inviter_email})
     except Exception as e:
         log.exception("Referral redemption failed")
-        return jsonify({"error":"server error"}), 500
+        return jsonify({"error": "server error"}), 500
 
 # ---------- Admin: allocate credits & manage plans ----------
+
+
 @app.route("/admin/allocate_credits", methods=["POST"])
 def admin_allocate_credits():
     data = request.get_json() or {}
     admin_key = data.get("admin_key")
     if admin_key != os.getenv("ADMIN_KEY", "visora_admin_secret"):
-        return jsonify({"error":"unauthorized"}), 401
+        return jsonify({"error": "unauthorized"}), 401
     email = data.get("email")
     amount = int(data.get("amount", 0))
     if not email or amount == 0:
-        return jsonify({"error":"invalid payload"}), 400
+        return jsonify({"error": "invalid payload"}), 400
     try:
         u = UserProfile.query.filter_by(email=email).first()
         if not u:
-            return jsonify({"error":"user not found"}), 404
+            return jsonify({"error": "user not found"}), 404
         u.credits = (u.credits or 0) + amount
         db.session.commit()
-        return jsonify({"status":"ok","email": u.email, "credits": u.credits})
+        return jsonify(
+            {"status": "ok", "email": u.email, "credits": u.credits})
     except Exception as e:
         log.exception("Allocate credits failed")
-        return jsonify({"error":"server error"}), 500
+        return jsonify({"error": "server error"}), 500
 
 # ---------- Purchase using credits ----------
+
+
 @app.route("/purchase_with_credits", methods=["POST"])
 def purchase_with_credits():
     data = request.get_json() or {}
     email = data.get("user_email")
     amount_rupees = decimal.Decimal(str(data.get("amount", "0")))
     if not email or amount_rupees <= 0:
-        return jsonify({"error":"invalid payload"}), 400
+        return jsonify({"error": "invalid payload"}), 400
     u = UserProfile.query.filter_by(email=email).first()
     if not u:
-        return jsonify({"error":"user not found"}), 404
+        return jsonify({"error": "user not found"}), 404
     # Example conversion: 1 credit = Rs 1
     needed_credits = int(amount_rupees)
     if (u.credits or 0) < needed_credits:
-        return jsonify({"error":"insufficient credits"}), 402
+        return jsonify({"error": "insufficient credits"}), 402
     u.credits -= needed_credits
     db.session.commit()
-    return jsonify({"status":"success","remaining_credits": u.credits})
+    return jsonify({"status": "success", "remaining_credits": u.credits})
 
 # ---------- Safe webhook endpoint (generic) ----------
+
+
 @app.route("/webhook/generic", methods=["POST"])
 def generic_webhook():
     """
@@ -1563,9 +1794,12 @@ def generic_webhook():
     sig = request.headers.get("X-Visora-Sig", "")
     body = request.data or b""
     if WEBHOOK_SECRET:
-        expected = hmac.new(WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
+        expected = hmac.new(
+            WEBHOOK_SECRET.encode(),
+            body,
+            hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected, sig):
-            return jsonify({"error":"invalid signature"}), 403
+            return jsonify({"error": "invalid signature"}), 403
     # process payload
     try:
         payload = request.get_json() or {}
@@ -1573,24 +1807,20 @@ def generic_webhook():
         # you can extend handlers here
     except Exception:
         log.exception("Webhook processing failed")
-    return jsonify({"status":"ok"})
+    return jsonify({"status": "ok"})
+
 
 # ====================================================
 # 🔐 Payments Integration: Stripe Checkout + Razorpay Orders + Webhooks
 # ====================================================
-import os
-import stripe
-import hmac
-import hashlib
-import time
-from flask import request, jsonify, abort
 
 # --- Read env keys ---
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
-DOMAIN = os.getenv("DOMAIN", "http://127.0.0.1:5000")  # change to https://yourdomain.com in prod
+# change to https://yourdomain.com in prod
+DOMAIN = os.getenv("DOMAIN", "http://127.0.0.1:5000")
 
 # --- Init stripe if key available ---
 STRIPE_READY = False
@@ -1607,7 +1837,8 @@ RAZORPAY_READY = False
 try:
     import razorpay
     if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
-        razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+        razorpay_client = razorpay.Client(
+            auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
         RAZORPAY_READY = True
         log.info("Razorpay configured.")
 except Exception as e:
@@ -1615,6 +1846,8 @@ except Exception as e:
     RAZORPAY_READY = False
 
 # ---------- Stripe: create checkout session ----------
+
+
 @app.route("/stripe/create_checkout", methods=["POST"])
 def stripe_create_checkout():
     """
@@ -1655,6 +1888,8 @@ def stripe_create_checkout():
         return jsonify({"error": str(e)}), 500
 
 # ---------- Stripe webhook handler ----------
+
+
 @app.route("/stripe/webhook", methods=["POST"])
 def stripe_webhook():
     payload = request.data
@@ -1664,7 +1899,8 @@ def stripe_webhook():
     # Verify webhook signature if secret provided
     if STRIPE_WEBHOOK_SECRET:
         try:
-            event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, STRIPE_WEBHOOK_SECRET)
         except Exception as e:
             log.exception("Stripe webhook signature verification failed")
             return jsonify({"error": "invalid signature"}), 400
@@ -1675,15 +1911,24 @@ def stripe_webhook():
             return jsonify({"error": "invalid payload"}), 400
 
     # Handle events
-    etype = event.get("type") if isinstance(event, dict) else getattr(event, "type", None)
+    etype = event.get("type") if isinstance(
+        event, dict) else getattr(
+        event, "type", None)
     log.info("Stripe webhook event: %s", etype)
 
     # Payment succeeded
     if etype == "checkout.session.completed" or etype == "payment_intent.succeeded":
         # retrieve relevant info
-        obj = event.get("data", {}).get("object", {}) if isinstance(event, dict) else event.data.object
+        obj = event.get(
+            "data",
+            {}).get(
+            "object",
+            {}) if isinstance(
+            event,
+            dict) else event.data.object
         metadata = obj.get("metadata", {}) if isinstance(obj, dict) else {}
-        user_email = obj.get("customer_email") or metadata.get("user_email") or metadata.get("email")
+        user_email = obj.get("customer_email") or metadata.get(
+            "user_email") or metadata.get("email")
         amount = obj.get("amount_total") or obj.get("amount")  # cents
         # allocate credits or upgrade plan logic here
         try:
@@ -1694,13 +1939,18 @@ def stripe_webhook():
                     credits_to_add = int((amount or 0) // 100)
                     u.credits = (u.credits or 0) + credits_to_add
                     db.session.commit()
-                    log.info("Allocated %s credits to %s", credits_to_add, user_email)
+                    log.info(
+                        "Allocated %s credits to %s",
+                        credits_to_add,
+                        user_email)
         except Exception:
             log.exception("Failed to allocate credits after stripe webhook")
 
     return jsonify({"status": "ok"}), 200
 
 # ---------- Razorpay: create order ----------
+
+
 @app.route("/razorpay/create_order", methods=["POST"])
 def razorpay_create_order():
     """
@@ -1718,13 +1968,16 @@ def razorpay_create_order():
         return jsonify({"error": "Razorpay not configured on server"}), 501
 
     try:
-        order = razorpay_client.order.create({"amount": amount, "currency": currency, "receipt": receipt, "notes": notes})
+        order = razorpay_client.order.create(
+            {"amount": amount, "currency": currency, "receipt": receipt, "notes": notes})
         return jsonify({"order": order})
     except Exception as e:
         log.exception("Razorpay order creation failed")
         return jsonify({"error": str(e)}), 500
 
 # ---------- Razorpay: verify payment signature ----------
+
+
 @app.route("/razorpay/verify", methods=["POST"])
 def razorpay_verify():
     """
@@ -1744,7 +1997,10 @@ def razorpay_verify():
     try:
         if RAZORPAY_READY:
             msg = "{}|{}".format(order_id, payment_id)
-            generated_signature = hmac.new(RAZORPAY_KEY_SECRET.encode(), msg.encode(), hashlib.sha256).hexdigest()
+            generated_signature = hmac.new(
+                RAZORPAY_KEY_SECRET.encode(),
+                msg.encode(),
+                hashlib.sha256).hexdigest()
             if not hmac.compare_digest(generated_signature, signature):
                 return jsonify({"error": "invalid signature"}), 400
             # success -> allocate credits (example)
@@ -1759,17 +2015,20 @@ def razorpay_verify():
                 return jsonify({"status": "ok"})
             except Exception:
                 log.exception("Allocate after razorpay verify failed")
-                return jsonify({"status":"error"}), 500
+                return jsonify({"status": "error"}), 500
         else:
-            return jsonify({"error":"Razorpay not configured"}), 501
+            return jsonify({"error": "Razorpay not configured"}), 501
     except Exception as e:
         log.exception("Razorpay verify failed: %s", e)
         return jsonify({"error": str(e)}), 500
 
 # ---------- Simple client checkout HTML for Stripe (return URL) ----------
+
+
 @app.route("/payments/stripe_checkout_page", methods=["GET"])
 def stripe_checkout_page():
-    # small static HTML that demonstrates usage of sessionId returned by /stripe/create_checkout
+    # small static HTML that demonstrates usage of sessionId returned by
+    # /stripe/create_checkout
     html = f"""
     <!doctype html>
     <html>
@@ -1807,6 +2066,8 @@ def stripe_checkout_page():
     return html
 
 # ---------- Notes endpoint ----------
+
+
 @app.route("/payments/notes", methods=["GET"])
 def payments_notes():
     return jsonify({
@@ -1816,13 +2077,11 @@ def payments_notes():
         "note": "Set STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET in env"
     })
 
+
 # ====================================================
 # 🌌 UCVE v13: 3D Scene Composer (Virtual Camera, Lights, Motion Path)
 # ====================================================
-import numpy as np
-import cv2
-from moviepy.editor import *
-import open3d as o3d
+
 
 def generate_3d_background(theme: str = "sunset"):
     """
@@ -1837,11 +2096,11 @@ def generate_3d_background(theme: str = "sunset"):
         cv2.circle(img, (w // 2, h // 2), 180, (255, 160, 90), -1)
     elif theme == "forest":
         img[:, :] = (30, 80, 30)
-        cv2.rectangle(img, (0, h//2), (w, h), (40, 120, 40), -1)
+        cv2.rectangle(img, (0, h // 2), (w, h), (40, 120, 40), -1)
     elif theme == "city":
         img[:, :] = (30, 30, 30)
         for i in range(0, w, 80):
-            cv2.rectangle(img, (i, h//2), (i+40, h), (80, 80, 100), -1)
+            cv2.rectangle(img, (i, h // 2), (i + 40, h), (80, 80, 100), -1)
     else:
         img[:, :] = (50, 60, 70)
 
@@ -1863,20 +2122,23 @@ def apply_virtual_lighting(image_path: str, mood: str = "dramatic"):
     mask = np.zeros((h, w, 3), dtype=np.uint8)
 
     if mood == "dramatic":
-        cv2.circle(mask, (w//2, h//2), w//2, (60, 60, 60), -1)
+        cv2.circle(mask, (w // 2, h // 2), w // 2, (60, 60, 60), -1)
         cv2.addWeighted(mask, 0.5, img, 0.7, 0, overlay)
     elif mood == "happy":
         cv2.rectangle(mask, (0, 0), (w, h), (255, 255, 100), -1)
         cv2.addWeighted(mask, 0.3, img, 0.8, 0, overlay)
     else:
-        cv2.GaussianBlur(img, (9,9), 0)
+        cv2.GaussianBlur(img, (9, 9), 0)
 
     out_path = str(OUTPUT_FOLDER / f"lit_{uuid.uuid4().hex[:8]}.png")
     cv2.imwrite(out_path, overlay)
     return out_path
 
 
-def create_motion_path_scene(bg_path: str, char_img_path: str, motion: str = "pan-left"):
+def create_motion_path_scene(
+        bg_path: str,
+        char_img_path: str,
+        motion: str = "pan-left"):
     """
     Create a 3D motion path render by animating camera movement.
     """
@@ -1884,14 +2146,27 @@ def create_motion_path_scene(bg_path: str, char_img_path: str, motion: str = "pa
         raise RuntimeError("MoviePy not available for motion rendering")
 
     bg_clip = ImageClip(bg_path).set_duration(6)
-    char_clip = ImageClip(char_img_path).resize(height=400).set_position(("center", "center")).set_duration(6)
+    char_clip = ImageClip(char_img_path).resize(
+        height=400).set_position(
+        ("center", "center")).set_duration(6)
 
     if motion == "pan-left":
         char_clip = char_clip.set_position(lambda t: ("center", 360 - 50 * t))
     elif motion == "zoom-in":
         char_clip = char_clip.resize(lambda t: 1 + 0.05 * t)
     elif motion == "orbit":
-        char_clip = char_clip.set_position(lambda t: (640 + 80 * np.sin(t * 2), 360 + 50 * np.cos(t * 2)))
+        char_clip = char_clip.set_position(
+            lambda t: (
+                640 +
+                80 *
+                np.sin(
+                    t *
+                    2),
+                360 +
+                50 *
+                np.cos(
+                    t *
+                    2)))
 
     final = CompositeVideoClip([bg_clip, char_clip])
     out_path = str(OUTPUT_FOLDER / f"scene3d_{uuid.uuid4().hex[:8]}.mp4")
@@ -1937,13 +2212,13 @@ def ucve_3d_scene():
         log.exception("3D scene generation failed")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 # ====================================================
 # 🎯 UCVE v14: AI Camera Path Optimizer (Smooth Bezier Camera Paths)
 # ====================================================
-import math
-from typing import List, Tuple
 
 # Helpers: cubic bezier interpolation for 2D points
+
 def cubic_bezier(p0, p1, p2, p3, t: float) -> Tuple[float, float]:
     """Return point on cubic bezier at parameter t in [0,1]."""
     u = 1 - t
@@ -1955,10 +2230,15 @@ def cubic_bezier(p0, p1, p2, p3, t: float) -> Tuple[float, float]:
     y = b0 * p0[1] + b1 * p1[1] + b2 * p2[1] + b3 * p3[1]
     return (x, y)
 
+
 def linear_interp(a, b, t: float):
     return a + (b - a) * t
 
-def plan_camera_path_from_script(script_text: str, width:int=1280, height:int=720) -> List[dict]:
+
+def plan_camera_path_from_script(
+        script_text: str,
+        width: int = 1280,
+        height: int = 720) -> List[dict]:
     """
     Heuristic planner: produce list of keyframes.
     Each keyframe: {"time": seconds, "cx": center_x (0..1), "cy": center_y (0..1), "zoom": zoom_factor}
@@ -1966,29 +2246,52 @@ def plan_camera_path_from_script(script_text: str, width:int=1280, height:int=72
     - zoom: 1.0 = full frame, >1 = zoom-in (crop)
     """
     txt = (script_text or "").lower()
-    base_duration = 6.0  # default shot length (will be rescaled to actual clip length)
+    # default shot length (will be rescaled to actual clip length)
+    base_duration = 6.0
 
     keyframes = []
     # start: wide center
-    keyframes.append({"time":0.0,"cx":0.5,"cy":0.5,"zoom":1.0})
+    keyframes.append({"time": 0.0, "cx": 0.5, "cy": 0.5, "zoom": 1.0})
 
     # if action words -> quick push-in to left or right
-    if any(k in txt for k in ["run","chase","attack","roar","explode","fight"]):
-        keyframes.append({"time": base_duration*0.25, "cx":0.65, "cy":0.45, "zoom":1.15})
-        keyframes.append({"time": base_duration*0.6, "cx":0.4, "cy":0.5, "zoom":1.25})
+    if any(
+        k in txt for k in [
+            "run",
+            "chase",
+            "attack",
+            "roar",
+            "explode",
+            "fight"]):
+        keyframes.append({"time": base_duration *
+                          0.25, "cx": 0.65, "cy": 0.45, "zoom": 1.15})
+        keyframes.append({"time": base_duration *
+                          0.6, "cx": 0.4, "cy": 0.5, "zoom": 1.25})
     # if intimate dialog -> slow dolly-in center
-    if any(k in txt for k in ["love","cry","whisper","confess","tears","heart"]):
-        keyframes.append({"time": base_duration*0.35, "cx":0.5, "cy":0.45, "zoom":1.18})
-        keyframes.append({"time": base_duration*0.85, "cx":0.5, "cy":0.42, "zoom":1.35})
+    if any(
+        k in txt for k in [
+            "love",
+            "cry",
+            "whisper",
+            "confess",
+            "tears",
+            "heart"]):
+        keyframes.append({"time": base_duration *
+                          0.35, "cx": 0.5, "cy": 0.45, "zoom": 1.18})
+        keyframes.append({"time": base_duration *
+                          0.85, "cx": 0.5, "cy": 0.42, "zoom": 1.35})
     # if sudden/turn -> dramatic pan
-    if any(k in txt for k in ["suddenly","but","however","then"]):
-        keyframes.append({"time": base_duration*0.5, "cx":0.2, "cy":0.55, "zoom":1.12})
+    if any(k in txt for k in ["suddenly", "but", "however", "then"]):
+        keyframes.append({"time": base_duration *
+                          0.5, "cx": 0.2, "cy": 0.55, "zoom": 1.12})
 
     # always end with a calm wide shot
-    keyframes.append({"time": base_duration, "cx":0.5, "cy":0.5, "zoom":1.0})
+    keyframes.append(
+        {"time": base_duration, "cx": 0.5, "cy": 0.5, "zoom": 1.0})
 
-    # normalize times to 0..1 range for interpolation stage (actual durations handled later)
+    # normalize times to 0..1 range for interpolation stage (actual durations
+    # handled later)
     return keyframes
+
 
 def expand_keyframes_to_bezier_segments(keyframes: List[dict]) -> List[dict]:
     """
@@ -2003,20 +2306,21 @@ def expand_keyframes_to_bezier_segments(keyframes: List[dict]) -> List[dict]:
     times = [p[3] for p in pts]
 
     segments = []
-    n = max(1, len(pos)-1)
-    # create simple control points: for p_i create p_i, p_i + delta/3, p_{i+1} - delta/3, p_{i+1}
+    n = max(1, len(pos) - 1)
+    # create simple control points: for p_i create p_i, p_i + delta/3, p_{i+1}
+    # - delta/3, p_{i+1}
     for i in range(n):
         p0 = pos[i]
-        p3 = pos[min(i+1, len(pos)-1)]
+        p3 = pos[min(i + 1, len(pos) - 1)]
         # delta
-        dx = (p3[0]-p0[0])
-        dy = (p3[1]-p0[1])
-        p1 = (p0[0] + dx*0.33, p0[1] + dy*0.33)
-        p2 = (p0[0] + dx*0.66, p0[1] + dy*0.66)
+        dx = (p3[0] - p0[0])
+        dy = (p3[1] - p0[1])
+        p1 = (p0[0] + dx * 0.33, p0[1] + dy * 0.33)
+        p2 = (p0[0] + dx * 0.66, p0[1] + dy * 0.66)
         t0 = times[i]
-        t1 = times[min(i+1, len(times)-1)]
+        t1 = times[min(i + 1, len(times) - 1)]
         z0 = zooms[i]
-        z1 = zooms[min(i+1, len(zooms)-1)]
+        z1 = zooms[min(i + 1, len(zooms) - 1)]
         segments.append({
             "p0": p0, "p1": p1, "p2": p2, "p3": p3,
             "t0": t0, "t1": t1,
@@ -2024,7 +2328,11 @@ def expand_keyframes_to_bezier_segments(keyframes: List[dict]) -> List[dict]:
         })
     return segments
 
-def apply_camera_path(video_path: str, keyframes: List[dict], out_name: str = None) -> str:
+
+def apply_camera_path(
+        video_path: str,
+        keyframes: List[dict],
+        out_name: str = None) -> str:
     """
     Apply camera path to the video by using MoviePy's crop with time-varying x1/y1/x2/y2 functions.
     keyframes: list produced by plan_camera_path_from_script
@@ -2060,7 +2368,7 @@ def apply_camera_path(video_path: str, keyframes: List[dict], out_name: str = No
     def lookup_at(t):
         # find segment containing t (by t0..t1)
         if not segs:
-            return (0.5,0.5,1.0)
+            return (0.5, 0.5, 1.0)
         for s in segs:
             if t >= s["t0"] and t <= s["t1"]:
                 # map t to local u
@@ -2077,33 +2385,39 @@ def apply_camera_path(video_path: str, keyframes: List[dict], out_name: str = No
     def x1_at(t):
         cx, cy, zoom = lookup_at(t)
         crop_w = w / zoom
-        x1 = max(0, int(cx * w - crop_w/2))
+        x1 = max(0, int(cx * w - crop_w / 2))
         return x1
 
     def y1_at(t):
         cx, cy, zoom = lookup_at(t)
         crop_h = h / zoom
-        y1 = max(0, int(cy * h - crop_h/2))
+        y1 = max(0, int(cy * h - crop_h / 2))
         return y1
 
     def x2_at(t):
         cx, cy, zoom = lookup_at(t)
         crop_w = w / zoom
-        x2 = min(w, int(cx * w + crop_w/2))
+        x2 = min(w, int(cx * w + crop_w / 2))
         return x2
 
     def y2_at(t):
         cx, cy, zoom = lookup_at(t)
         crop_h = h / zoom
-        y2 = min(h, int(cy * h + crop_h/2))
+        y2 = min(h, int(cy * h + crop_h / 2))
         return y2
 
     # Apply crop with functions
     try:
         cropped = clip.fx(crop, x1=lambda t: x1_at(t), y1=lambda t: y1_at(t),
                           x2=lambda t: x2_at(t), y2=lambda t: y2_at(t))
-        out_path = OUTPUT_DIR / f"camopt_{uuid.uuid4().hex[:8]}.mp4" if not out_name else OUTPUT_DIR / out_name
-        cropped.write_videofile(str(out_path), fps=24, codec="libx264", audio_codec="aac", logger=None)
+        out_path = OUTPUT_DIR / \
+            f"camopt_{uuid.uuid4().hex[:8]}.mp4" if not out_name else OUTPUT_DIR / out_name
+        cropped.write_videofile(
+            str(out_path),
+            fps=24,
+            codec="libx264",
+            audio_codec="aac",
+            logger=None)
         try:
             cropped.close()
             clip.close()
@@ -2114,6 +2428,7 @@ def apply_camera_path(video_path: str, keyframes: List[dict], out_name: str = No
         log.exception("Camera path application failed: %s", e)
         clip.close()
         raise
+
 
 @app.route("/camera_optimize", methods=["POST"])
 def camera_optimize_endpoint():
@@ -2129,7 +2444,7 @@ def camera_optimize_endpoint():
     fov_zoom = float(data.get("fov_zoom", 1.0))
 
     if not video_path and not script:
-        return jsonify({"error":"provide video_path or script"}), 400
+        return jsonify({"error": "provide video_path or script"}), 400
 
     try:
         # generate base if requested
@@ -2137,7 +2452,7 @@ def camera_optimize_endpoint():
             if "generate_cinematic_scene" in globals():
                 base_video = generate_cinematic_scene(script)
             else:
-                return jsonify({"error":"no base video available"}), 400
+                return jsonify({"error": "no base video available"}), 400
         else:
             base_video = video_path
 
@@ -2145,7 +2460,7 @@ def camera_optimize_endpoint():
         keyframes = plan_camera_path_from_script(script)
         # optionally apply global fov_zoom scaling
         for k in keyframes:
-            k["zoom"] = k.get("zoom",1.0) * fov_zoom
+            k["zoom"] = k.get("zoom", 1.0) * fov_zoom
 
         final_file = apply_camera_path(base_video, keyframes)
         cloud_url = None
@@ -2155,24 +2470,21 @@ def camera_optimize_endpoint():
             except Exception:
                 cloud_url = None
 
-        return jsonify({"status":"success","file": final_file, "cloud_url": cloud_url})
+        return jsonify(
+            {"status": "success", "file": final_file, "cloud_url": cloud_url})
     except Exception as e:
         log.exception("camera_optimize failed")
-        return jsonify({"status":"error","message": str(e)}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 # ====================================================
 # 🌌 UCVE v15: Real Depth Parallax Engine (AI Depth Map Simulation)
 # ====================================================
-import torch
-import torch.nn as nn
-import torchvision.transforms as T
-from PIL import Image
-import numpy as np
-import cv2
 
 # --- Depth Model Cache ---
 _midas_model = None
 _midas_transform = None
+
 
 def load_midas_model():
     """Load MiDaS small model once (for CPU)."""
@@ -2182,7 +2494,9 @@ def load_midas_model():
     try:
         midas = torch.hub.load("intel-isl/MiDaS", "MiDaS_small")
         midas.eval()
-        transform = torch.hub.load("intel-isl/MiDaS", "transforms").small_transform
+        transform = torch.hub.load(
+            "intel-isl/MiDaS",
+            "transforms").small_transform
         _midas_model, _midas_transform = midas, transform
         log.info("MiDaS depth model loaded ✅")
         return midas, transform
@@ -2190,7 +2504,10 @@ def load_midas_model():
         log.warning("MiDaS model load failed: %s", e)
         return None, None
 
-def generate_depth_map(image_path: str, out_path: Optional[str] = None) -> Optional[str]:
+
+def generate_depth_map(
+        image_path: str,
+        out_path: Optional[str] = None) -> Optional[str]:
     """Generate AI depth map for an image (0–255 grayscale)."""
     model, transform = load_midas_model()
     if model is None:
@@ -2202,13 +2519,18 @@ def generate_depth_map(image_path: str, out_path: Optional[str] = None) -> Optio
         pred = model(inp)
         depth = pred.squeeze().cpu().numpy()
 
-    depth_norm = cv2.normalize(depth, None, 0, 255, cv2.NORM_MINMAX).astype("uint8")
+    depth_norm = cv2.normalize(
+        depth, None, 0, 255, cv2.NORM_MINMAX).astype("uint8")
     out = out_path or str(OUTPUT_FOLDER / f"depth_{uuid.uuid4().hex[:8]}.png")
     cv2.imwrite(out, depth_norm)
     return out
 
 
-def apply_parallax_motion(image_path: str, depth_path: str, motion: str = "dolly-in", duration: float = 6.0) -> str:
+def apply_parallax_motion(
+        image_path: str,
+        depth_path: str,
+        motion: str = "dolly-in",
+        duration: float = 6.0) -> str:
     """
     Combine image + depth to generate 3D-like camera movement.
     """
@@ -2237,7 +2559,8 @@ def apply_parallax_motion(image_path: str, depth_path: str, motion: str = "dolly
 
         transformed = cv2.warpAffine(img, M, (w, h))
         blur_amt = int(4 + 8 * (1 - t))
-        depth_blur = cv2.GaussianBlur(transformed, (blur_amt | 1, blur_amt | 1), 0)
+        depth_blur = cv2.GaussianBlur(
+            transformed, (blur_amt | 1, blur_amt | 1), 0)
         frames.append(depth_blur)
 
     out_path = str(OUTPUT_FOLDER / f"parallax_{uuid.uuid4().hex[:8]}.mp4")
@@ -2268,7 +2591,8 @@ def ucve_depth_parallax():
 
     try:
         depth_path = generate_depth_map(_abs_path(img))
-        video_path = apply_parallax_motion(_abs_path(img), depth_path, motion, duration)
+        video_path = apply_parallax_motion(
+            _abs_path(img), depth_path, motion, duration)
 
         cloud_url = None
         if FIREBASE_BUCKET:
@@ -2278,48 +2602,50 @@ def ucve_depth_parallax():
                 cloud_url = None
 
         return jsonify({
-            "status":"success",
+            "status": "success",
             "depth_map": depth_path,
             "video": video_path,
             "cloud_url": cloud_url
         })
     except Exception as e:
         log.exception("Depth parallax failed")
-        return jsonify({"status":"error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 # ====================================================
 # 🎨 UCVE v16: AI Cinematic Color Grading & Mood Filters
 # ====================================================
-import cv2
-import numpy as np
-from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip, vfx
 
 # Pre-defined simple LUT / grading functions
+
 def apply_teal_orange(image: np.ndarray) -> np.ndarray:
     """Simple teal-orange boost: shift shadows to teal, highlights to warm."""
     img = image.astype(np.float32) / 255.0
     # split channels
-    r, g, b = img[...,2], img[...,1], img[...,0]
-    # boost warm in highlights (increase red), teal in shadows (increase blue/green)
-    lum = 0.299*r + 0.587*g + 0.114*b
-    highlights = np.clip((lum - 0.5) * 2.0, 0,1)
+    r, g, b = img[..., 2], img[..., 1], img[..., 0]
+    # boost warm in highlights (increase red), teal in shadows (increase
+    # blue/green)
+    lum = 0.299 * r + 0.587 * g + 0.114 * b
+    highlights = np.clip((lum - 0.5) * 2.0, 0, 1)
     shadows = 1.0 - highlights
-    r = np.clip(r + highlights * 0.12, 0,1)
-    g = np.clip(g + shadows * 0.04, 0,1)
-    b = np.clip(b + shadows * 0.08 - highlights * 0.02, 0,1)
-    out = np.stack([b,g,r], axis=-1)
-    out = np.clip(out * 255.0, 0,255).astype(np.uint8)
+    r = np.clip(r + highlights * 0.12, 0, 1)
+    g = np.clip(g + shadows * 0.04, 0, 1)
+    b = np.clip(b + shadows * 0.08 - highlights * 0.02, 0, 1)
+    out = np.stack([b, g, r], axis=-1)
+    out = np.clip(out * 255.0, 0, 255).astype(np.uint8)
     return out
+
 
 def apply_warm_filter(image: np.ndarray) -> np.ndarray:
     img = image.astype(np.float32)
-    lut = np.arange(0,256).astype(np.uint8)
+    lut = np.arange(0, 256).astype(np.uint8)
     # slight gamma warm
     gamma = 0.95
-    img = 255.0 * ((img/255.0) ** gamma)
+    img = 255.0 * ((img / 255.0) ** gamma)
     # boost reds
-    img[...,2] = np.clip(img[...,2] * 1.06, 0,255)
+    img[..., 2] = np.clip(img[..., 2] * 1.06, 0, 255)
     return img.astype(np.uint8)
+
 
 def apply_noir_filter(image: np.ndarray) -> np.ndarray:
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -2328,33 +2654,41 @@ def apply_noir_filter(image: np.ndarray) -> np.ndarray:
     out = cv2.cvtColor(eq, cv2.COLOR_GRAY2BGR)
     return out
 
+
 def apply_cold_filter(image: np.ndarray) -> np.ndarray:
     img = image.astype(np.float32) / 255.0
-    r, g, b = img[...,2], img[...,1], img[...,0]
-    r = np.clip(r * 0.95, 0,1)
-    b = np.clip(b * 1.08, 0,1)
-    out = np.stack([b,g,r], axis=-1)
-    out = np.clip(out * 255.0, 0,255).astype(np.uint8)
+    r, g, b = img[..., 2], img[..., 1], img[..., 0]
+    r = np.clip(r * 0.95, 0, 1)
+    b = np.clip(b * 1.08, 0, 1)
+    out = np.stack([b, g, r], axis=-1)
+    out = np.clip(out * 255.0, 0, 255).astype(np.uint8)
     return out
 
 # Tone mapping / contrast utility
-def contrast_and_vignette(image: np.ndarray, contrast: float = 1.05, vignette_strength: float = 0.4) -> np.ndarray:
+
+
+def contrast_and_vignette(
+        image: np.ndarray,
+        contrast: float = 1.05,
+        vignette_strength: float = 0.4) -> np.ndarray:
     img = image.astype(np.float32)
     # contrast
-    mean = np.mean(img, axis=(0,1), keepdims=True)
+    mean = np.mean(img, axis=(0, 1), keepdims=True)
     img = (img - mean) * contrast + mean
-    img = np.clip(img, 0,255).astype(np.uint8)
+    img = np.clip(img, 0, 255).astype(np.uint8)
     # vignette
     h, w = img.shape[:2]
-    X = np.linspace(-1,1,w)
-    Y = np.linspace(-1,1,h)
+    X = np.linspace(-1, 1, w)
+    Y = np.linspace(-1, 1, h)
     xv, yv = np.meshgrid(X, Y)
     mask = 1.0 - vignette_strength * ((xv**2 + yv**2))
-    mask = np.clip(mask, 0.0, 1.0)[:,:,None]
+    mask = np.clip(mask, 0.0, 1.0)[:, :, None]
     img = (img.astype(np.float32) * mask).astype(np.uint8)
     return img
 
 # High-level apply mood
+
+
 def grade_frame_by_mood(frame: np.ndarray, mood: str) -> np.ndarray:
     if mood == "happy":
         out = apply_teal_orange(frame)
@@ -2369,20 +2703,31 @@ def grade_frame_by_mood(frame: np.ndarray, mood: str) -> np.ndarray:
         out = apply_warm_filter(frame)
         out = contrast_and_vignette(out, contrast=1.02, vignette_strength=0.12)
     else:
-        out = contrast_and_vignette(frame, contrast=1.02, vignette_strength=0.12)
+        out = contrast_and_vignette(
+            frame, contrast=1.02, vignette_strength=0.12)
     return out
 
 # MoviePy-friendly filter (applies per-frame)
-def color_grade_video(input_video: str, mood: str = "dramatic", out_name: str = None) -> str:
+
+
+def color_grade_video(
+        input_video: str,
+        mood: str = "dramatic",
+        out_name: str = None) -> str:
     if not MOVIEPY_AVAILABLE:
         raise RuntimeError("moviepy required for color grading")
 
     clip = VideoFileClip(str(input_video))
     # apply frame-by-frame transform (fast enough for short clips)
+
     def fl_image(get_frame, t):
         frame = get_frame(t)
         # frame is RGB in MoviePy; convert to BGR for OpenCV operations
-        frame_bgr = cv2.cvtColor((frame * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+        frame_bgr = cv2.cvtColor(
+            (frame *
+             255).astype(
+                np.uint8),
+            cv2.COLOR_RGB2BGR)
         graded = grade_frame_by_mood(frame_bgr, mood)
         graded_rgb = cv2.cvtColor(graded, cv2.COLOR_BGR2RGB)
         return (graded_rgb.astype(np.uint8) / 255.0)
@@ -2394,7 +2739,13 @@ def color_grade_video(input_video: str, mood: str = "dramatic", out_name: str = 
         out_path = OUTPUT_DIR / f"graded_{uuid.uuid4().hex[:8]}.mp4"
     else:
         out_path = OUTPUT_DIR / out_name
-    graded.write_videofile(str(out_path), fps=clip.fps or 24, codec="libx264", audio_codec="aac", threads=2, logger=None)
+    graded.write_videofile(
+        str(out_path),
+        fps=clip.fps or 24,
+        codec="libx264",
+        audio_codec="aac",
+        threads=2,
+        logger=None)
     try:
         graded.close()
         clip.close()
@@ -2403,6 +2754,8 @@ def color_grade_video(input_video: str, mood: str = "dramatic", out_name: str = 
     return str(out_path)
 
 # Flask endpoint: grade by mood
+
+
 @app.route("/color_grade", methods=["POST"])
 def color_grade_endpoint():
     """
@@ -2416,11 +2769,11 @@ def color_grade_endpoint():
     video_path = data.get("video_path", "")
     mood = data.get("mood", "dramatic")
     if not video_path:
-        return jsonify({"error":"video_path required"}), 400
+        return jsonify({"error": "video_path required"}), 400
 
     try:
         if video_path == "ucve" and "generate_cinematic_scene" in globals():
-            video_path = generate_cinematic_scene(data.get("script",""))
+            video_path = generate_cinematic_scene(data.get("script", ""))
         out = color_grade_video(video_path, mood=mood)
         cloud_url = None
         if FIREBASE_BUCKET:
@@ -2428,10 +2781,12 @@ def color_grade_endpoint():
                 cloud_url = upload_to_firebase(out)
             except Exception:
                 cloud_url = None
-        return jsonify({"status":"success","file": out,"cloud_url": cloud_url})
+        return jsonify(
+            {"status": "success", "file": out, "cloud_url": cloud_url})
     except Exception as e:
         log.exception("Color grading failed: %s", e)
-        return jsonify({"status":"error","message": str(e)}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 # ====================================================
 # ⚙️ UCVE v17: Production Hardening, Scaling & Observability
@@ -2441,14 +2796,6 @@ def color_grade_endpoint():
 # - Rate limiting via Flask-Limiter
 # - Graceful shutdown handling
 # ====================================================
-import atexit
-import signal
-import threading
-import time
-import os
-from prometheus_client import Counter, Gauge, generate_latest, CollectorRegistry, CONTENT_TYPE_LATEST
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 
 # --------- Redis + RQ (optional) ----------
 REDIS_URL = os.getenv("REDIS_URL", None)
@@ -2458,7 +2805,10 @@ try:
         import redis
         from rq import Queue, Connection, Worker
         redis_conn = redis.from_url(REDIS_URL)
-        rq_queue = Queue("visora_jobs", connection=redis_conn, default_timeout=60*60*2)
+        rq_queue = Queue(
+            "visora_jobs",
+            connection=redis_conn,
+            default_timeout=60 * 60 * 2)
         USE_RQ = True
         log.info("RQ queue initialized (Redis): %s", REDIS_URL)
     else:
@@ -2472,6 +2822,7 @@ except Exception as e:
 thread_worker_running = False
 thread_queue = []
 thread_lock = threading.Lock()
+
 
 def thread_worker_loop():
     global thread_worker_running
@@ -2498,9 +2849,11 @@ def thread_worker_loop():
         else:
             time.sleep(0.5)
 
+
 def enqueue_thread_job(job):
     with thread_lock:
         thread_queue.append(job)
+
 
 # start thread worker as daemon
 thread_worker = threading.Thread(target=thread_worker_loop, daemon=True)
@@ -2508,13 +2861,26 @@ thread_worker.start()
 
 # --------- Metrics (Prometheus) ----------
 REGISTRY = CollectorRegistry()
-MET_JOB_SUBMITTED = Counter('visora_jobs_submitted_total', 'Total render jobs submitted', registry=REGISTRY)
-MET_JOB_DONE = Counter('visora_jobs_done_total', 'Total render jobs completed', registry=REGISTRY)
-MET_JOB_FAILED = Counter('visora_jobs_failed_total', 'Total render jobs failed', registry=REGISTRY)
-MET_ACTIVE_WORKERS = Gauge('visora_active_workers', 'Active background workers', registry=REGISTRY)
+MET_JOB_SUBMITTED = Counter(
+    'visora_jobs_submitted_total',
+    'Total render jobs submitted',
+    registry=REGISTRY)
+MET_JOB_DONE = Counter(
+    'visora_jobs_done_total',
+    'Total render jobs completed',
+    registry=REGISTRY)
+MET_JOB_FAILED = Counter(
+    'visora_jobs_failed_total',
+    'Total render jobs failed',
+    registry=REGISTRY)
+MET_ACTIVE_WORKERS = Gauge(
+    'visora_active_workers',
+    'Active background workers',
+    registry=REGISTRY)
 
 # initialize worker count (1 thread worker always)
 MET_ACTIVE_WORKERS.set(1 if not USE_RQ else 0)
+
 
 @app.route("/metrics")
 def metrics():
@@ -2524,7 +2890,8 @@ def metrics():
         return (data, 200, {'Content-Type': CONTENT_TYPE_LATEST})
     except Exception as e:
         log.exception("Failed to generate metrics")
-        return jsonify({"error":"metrics failed","details":str(e)}), 500
+        return jsonify({"error": "metrics failed", "details": str(e)}), 500
+
 
 # --------- Rate limiting ----------
 # limit: 60 requests per minute per IP by default (tune as needed)
@@ -2539,13 +2906,16 @@ custom_limit = os.getenv("API_RATE_LIMIT")
 if custom_limit:
     limiter.limit(custom_limit)
 
-# --------- Unified enqueue API (uses RQ if present, else thread fallback) ----------
+# --------- Unified enqueue API (uses RQ if present, else thread fallback)
+
+
 def enqueue_render_job_internal(fn, *args, **kwargs):
     """
     Enqueue a render job (fn callable). Returns job_id string.
     """
     job_id = uuid.uuid4().hex
-    render_jobs[job_id] = {"status":"queued","created_at": datetime.utcnow().isoformat()}
+    render_jobs[job_id] = {"status": "queued",
+                           "created_at": datetime.utcnow().isoformat()}
     MET_JOB_SUBMITTED.inc()
 
     if USE_RQ:
@@ -2558,13 +2928,17 @@ def enqueue_render_job_internal(fn, *args, **kwargs):
         except Exception as e:
             log.exception("RQ enqueue failed, falling back to thread: %s", e)
             # fallback to thread
-            enqueue_thread_job({"job_id":job_id,"fn":fn,"args":args,"kwargs":kwargs})
+            enqueue_thread_job({"job_id": job_id, "fn": fn,
+                               "args": args, "kwargs": kwargs})
     else:
-        enqueue_thread_job({"job_id":job_id,"fn":fn,"args":args,"kwargs":kwargs})
+        enqueue_thread_job({"job_id": job_id, "fn": fn,
+                           "args": args, "kwargs": kwargs})
 
     return job_id
 
 # Example wrapper for existing generate flow
+
+
 @app.route("/enqueue_render", methods=["POST"])
 @limiter.limit("10/minute")  # endpoint-specific stricter limit
 def enqueue_render():
@@ -2574,12 +2948,18 @@ def enqueue_render():
     Returns: {"job_id":"..."}
     """
     data = request.get_json() or {}
-    script = data.get("script","")
-    flow = data.get("flow","ucve")
-    user_email = data.get("user_email","demo@visora.com")
+    script = data.get("script", "")
+    flow = data.get("flow", "ucve")
+    user_email = data.get("user_email", "demo@visora.com")
 
     # create DB UserVideo record (simplified)
-    video = UserVideo(user_email=user_email, title=f"Auto {datetime.utcnow().isoformat()}", script=script, template="UCVE", status="queued")
+    video = UserVideo(
+        user_email=user_email,
+        title=f"Auto {
+            datetime.utcnow().isoformat()}",
+        script=script,
+        template="UCVE",
+        status="queued")
     db.session.add(video)
     db.session.commit()
 
@@ -2589,27 +2969,34 @@ def enqueue_render():
             # mark running in DB
             v = UserVideo.query.get(video_id)
             if v:
-                v.status = "running"; db.session.commit()
+                v.status = "running"
+                db.session.commit()
 
             # Example: call existing UCVE flow
             if flow_name == "ucve" and "generate_cinematic_scene" in globals():
                 out = generate_cinematic_scene(script_text)
             else:
-                # fallback basic generator (should be replaced with real function)
-                out = generate_cinematic_scene(script_text) if "generate_cinematic_scene" in globals() else None
+                # fallback basic generator (should be replaced with real
+                # function)
+                out = generate_cinematic_scene(
+                    script_text) if "generate_cinematic_scene" in globals() else None
 
             # update DB
             v = UserVideo.query.get(video_id)
             if v:
-                v.status = "done"; v.file_path = out; db.session.commit()
+                v.status = "done"
+                v.file_path = out
+                db.session.commit()
             MET_JOB_DONE.inc()
-            render_jobs[video_id.hex if hasattr(video_id,'hex') else video_id] = {"status":"done","output_file": out}
+            render_jobs[video_id.hex if hasattr(video_id, 'hex') else video_id] = {
+                "status": "done", "output_file": out}
         except Exception as e:
             log.exception("Background job failed: %s", e)
             try:
                 if v:
-                    v.status = "failed"; db.session.commit()
-            except:
+                    v.status = "failed"
+                    db.session.commit()
+            except BaseException:
                 pass
             MET_JOB_FAILED.inc()
 
@@ -2618,8 +3005,11 @@ def enqueue_render():
     job_id = enqueue_render_job_internal(job_wrapper, vid, script, flow)
     return jsonify({"job_id": job_id, "video_db_id": vid})
 
+
 # --------- Graceful shutdown handler ----------
 shutdown_flag = False
+
+
 def _graceful_shutdown(signum, frame):
     global shutdown_flag, thread_worker_running
     log.info("Graceful shutdown signal received: %s", signum)
@@ -2631,11 +3021,14 @@ def _graceful_shutdown(signum, frame):
     time.sleep(1)
     log.info("Shutdown cleanup done.")
 
+
 signal.signal(signal.SIGTERM, _graceful_shutdown)
 signal.signal(signal.SIGINT, _graceful_shutdown)
 atexit.register(lambda: log.info("Exiting visora backend."))
 
 # --------- Health & readiness endpoints (expanded) ----------
+
+
 @app.route("/readiness", methods=["GET"])
 def readiness():
     # basic checks: DB OK, Redis optional, worker alive
@@ -2662,9 +3055,11 @@ def readiness():
 
     return jsonify({"ready": ok, "issues": reasons})
 
+
 @app.route("/liveness", methods=["GET"])
 def liveness():
     return jsonify({"alive": True, "time": datetime.utcnow().isoformat()})
+
 
 # --------- Docker & Compose hints (string for convenience) ----------
 DOCKER_HELPER = """
@@ -2698,9 +3093,10 @@ services:
 # ====================================================
 # 🧩 UCVE v18: Final Production Layer (Profile + Gallery + Admin)
 # ====================================================
-from flask import send_file
 
 # ---------- 1️⃣ Profile Photo Upload + Plan Update ----------
+
+
 @app.route("/profile/photo", methods=["POST"])
 def upload_profile_photo():
     user_email = request.form.get("email")
@@ -2717,10 +3113,12 @@ def upload_profile_photo():
     db.session.commit()
     return jsonify({"status": "success", "photo": rel})
 
+
 @app.route("/profile/update_plan", methods=["POST"])
 def update_user_plan():
     data = request.get_json(force=True)
-    email, plan, credits = data.get("email"), data.get("plan"), int(data.get("credits", 0))
+    email, plan, credits = data.get("email"), data.get(
+        "plan"), int(data.get("credits", 0))
     u = UserProfile.query.filter_by(email=email).first()
     if not u:
         return jsonify({"error": "user not found"}), 404
@@ -2730,6 +3128,8 @@ def update_user_plan():
     return jsonify({"status": "updated", "plan": plan, "credits": u.credits})
 
 # ---------- 2️⃣ Gallery Controls ----------
+
+
 @app.route("/gallery/delete", methods=["POST"])
 def gallery_delete():
     data = request.get_json(force=True)
@@ -2749,12 +3149,14 @@ def gallery_delete():
         log.exception("delete failed")
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/gallery/download/<int:vid_id>")
 def gallery_download(vid_id):
     v = UserVideo.query.get(vid_id)
     if not v or not v.file_path:
         return jsonify({"error": "not found"}), 404
     return send_file(_abs_path(v.file_path), as_attachment=True)
+
 
 @app.route("/gallery/rename", methods=["POST"])
 def gallery_rename():
@@ -2768,21 +3170,31 @@ def gallery_rename():
     return jsonify({"status": "renamed", "title": new_title})
 
 # ---------- 3️⃣ Admin APIs ----------
+
+
 @app.route("/admin/users", methods=["GET"])
 def admin_users():
     out = []
     for u in UserProfile.query.all():
-        out.append({"email": u.email, "plan": u.plan, "credits": u.credits, "country": u.country})
+        out.append({"email": u.email, "plan": u.plan,
+                   "credits": u.credits, "country": u.country})
     return jsonify(out)
+
 
 @app.route("/admin/templates", methods=["GET", "POST", "DELETE"])
 def admin_templates():
     if request.method == "GET":
         all_t = TemplateCatalog.query.all()
-        return jsonify([{"id": t.id, "name": t.name, "category": t.category, "score": t.trending_score} for t in all_t])
+        return jsonify([{"id": t.id,
+                         "name": t.name,
+                         "category": t.category,
+                         "score": t.trending_score} for t in all_t])
     if request.method == "POST":
         d = request.get_json(force=True)
-        t = TemplateCatalog(name=d.get("name"), category=d.get("category"), thumbnail=d.get("thumbnail"))
+        t = TemplateCatalog(
+            name=d.get("name"),
+            category=d.get("category"),
+            thumbnail=d.get("thumbnail"))
         db.session.add(t)
         db.session.commit()
         return jsonify({"status": "added", "id": t.id})
@@ -2796,6 +3208,7 @@ def admin_templates():
         db.session.commit()
         return jsonify({"status": "deleted"})
 
+
 @app.route("/admin/credits", methods=["POST"])
 def admin_add_credits():
     data = request.get_json(force=True)
@@ -2807,14 +3220,22 @@ def admin_add_credits():
     db.session.commit()
     return jsonify({"status": "credits_added", "credits": u.credits})
 
+
 @app.route("/admin/jobs", methods=["GET"])
 def admin_jobs():
     jobs = []
-    for vid in UserVideo.query.order_by(UserVideo.created_at.desc()).limit(100).all():
-        jobs.append({"id": vid.id, "user": vid.user_email, "title": vid.title, "status": vid.status, "created": vid.created_at.isoformat()})
+    for vid in UserVideo.query.order_by(
+            UserVideo.created_at.desc()).limit(100).all():
+        jobs.append({"id": vid.id,
+                     "user": vid.user_email,
+                     "title": vid.title,
+                     "status": vid.status,
+                     "created": vid.created_at.isoformat()})
     return jsonify(jobs)
 
 # ---------- 4️⃣ Auto Cleaner ----------
+
+
 @app.route("/admin/cleanup", methods=["POST"])
 def admin_cleanup():
     now = time.time()
@@ -2830,6 +3251,8 @@ def admin_cleanup():
     return jsonify({"status": "cleaned", "files_removed": removed})
 
 # ---------- 5️⃣ Thumbnail Generator ----------
+
+
 def generate_video_thumbnail(video_path: str) -> str:
     """Generate first-frame thumbnail for gallery display."""
     thumb_path = str(OUTPUT_FOLDER / f"thumb_{uuid.uuid4().hex[:8]}.jpg")
@@ -2854,9 +3277,6 @@ def generate_video_thumbnail(video_path: str) -> str:
 # - Fallbacks to AI-generated default voices if missing
 # ==========================================================
 
-import os
-from pathlib import Path
-from flask import request, jsonify
 
 # Default AI fallback voices
 AI_VOICES = {
@@ -2944,7 +3364,11 @@ def upload_character():
     # Save to DB (if enabled)
     try:
         if "CharacterProfile" in globals():
-            c = CharacterProfile(email=email, name=char_name, photo=str(rel_path), voice_path=voice_path)
+            c = CharacterProfile(
+                email=email,
+                name=char_name,
+                photo=str(rel_path),
+                voice_path=voice_path)
             db.session.add(c)
             db.session.commit()
     except Exception as e:
@@ -2984,12 +3408,10 @@ def generate_ai_voice():
 # - Integrates with UCVE cinematic video pipeline
 # ==========================================================
 
-import librosa
-import numpy as np
-import cv2
-from moviepy.editor import ImageClip, AudioFileClip, CompositeAudioClip
 
 # ---------- Emotion Detection ----------
+
+
 def detect_emotion_from_audio(audio_path):
     """Analyze audio tone to detect emotion"""
     try:
@@ -3012,7 +3434,11 @@ def detect_emotion_from_audio(audio_path):
 
 
 # ---------- Lip Sync + Expression ----------
-def generate_lip_sync_video(photo_path, audio_path, output_path, emotion="neutral"):
+def generate_lip_sync_video(
+        photo_path,
+        audio_path,
+        output_path,
+        emotion="neutral"):
     """Create talking photo with lip sync + emotion-driven motion"""
     img = cv2.imread(photo_path)
     if img is None:
@@ -3020,7 +3446,8 @@ def generate_lip_sync_video(photo_path, audio_path, output_path, emotion="neutra
 
     # Resize for consistent output
     img = cv2.resize(img, (1280, 720))
-    base = ImageClip(photo_path).set_duration(AudioFileClip(audio_path).duration)
+    base = ImageClip(photo_path).set_duration(
+        AudioFileClip(audio_path).duration)
 
     # Add subtle motion based on emotion
     if emotion == "happy":
@@ -3047,7 +3474,11 @@ def generate_lip_sync_video(photo_path, audio_path, output_path, emotion="neutra
     final = concatenate_videoclips(clips, method="compose")
     audio_clip = AudioFileClip(audio_path)
     final = final.set_audio(audio_clip)
-    final.write_videofile(output_path, fps=24, codec="libx264", audio_codec="aac")
+    final.write_videofile(
+        output_path,
+        fps=24,
+        codec="libx264",
+        audio_codec="aac")
 
     return output_path
 
@@ -3075,7 +3506,11 @@ def create_lipsync_scene():
     emotion = emotion_input or detect_emotion_from_audio(_abs_path(audio_path))
 
     out_file = OUTPUT_FOLDER / f"lipsync_{uuid.uuid4().hex[:8]}.mp4"
-    result_path = generate_lip_sync_video(_abs_path(photo_path), _abs_path(audio_path), str(out_file), emotion)
+    result_path = generate_lip_sync_video(
+        _abs_path(photo_path),
+        _abs_path(audio_path),
+        str(out_file),
+        emotion)
 
     return jsonify({
         "status": "lipsync_created",
@@ -3094,16 +3529,13 @@ def emotion_from_audio():
     emotion = detect_emotion_from_audio(_abs_path(rel))
     return jsonify({"emotion": emotion, "audio": rel})
 
+
 # ====================================================
 # UCVE v21 — Real-Time Emotion Morphing & Scene Fusion
 # ====================================================
-import math
-import numpy as np
-import soundfile as sf
-import scipy.signal as sps
-from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip, vfx
 
 # --- Simple voice morph by pitch-shifting + amplitude envelope shaping ---
+
 def pitch_shift_np(y: np.ndarray, sr: int, n_steps: float):
     """Simple pitch shift via resampling (not high-quality but fast). n_steps semitones."""
     # factor = 2^(n_steps/12)
@@ -3114,6 +3546,7 @@ def pitch_shift_np(y: np.ndarray, sr: int, n_steps: float):
     y_back = sps.resample(y2, len(y))
     return y_back
 
+
 def envelope_shape(y: np.ndarray, strength: float = 1.0):
     """Apply mild dynamic shaping — compress/expand via simple tanh curve."""
     # normalize
@@ -3122,7 +3555,11 @@ def envelope_shape(y: np.ndarray, strength: float = 1.0):
     shaped = np.tanh(norm * (1.0 + 0.8 * strength))
     return (shaped * maxv).astype(y.dtype)
 
-def morph_voice_emotion(audio_path: str, out_path: str, target_emotion: str = "neutral"):
+
+def morph_voice_emotion(
+        audio_path: str,
+        out_path: str,
+        target_emotion: str = "neutral"):
     """
     Read audio file, morph pitch/amplitude according to target_emotion,
     and write out a new audio file (wav).
@@ -3166,7 +3603,8 @@ def morph_voice_emotion(audio_path: str, out_path: str, target_emotion: str = "n
 
     # simple limiter for angry (harder)
     if target_emotion == "angry":
-        shaped = np.clip(shaped, -0.9 * np.max(np.abs(shaped)), 0.9 * np.max(np.abs(shaped)))
+        shaped = np.clip(shaped, -0.9 * np.max(np.abs(shaped)),
+                         0.9 * np.max(np.abs(shaped)))
 
     # convert back to stereo if original was stereo
     if data.ndim == 2:
@@ -3176,14 +3614,19 @@ def morph_voice_emotion(audio_path: str, out_path: str, target_emotion: str = "n
     return out_path
 
 # --- Simple scene fusion / transitions ---
-def fuse_scenes_timeline(scene_paths: list, transitions: list = None, final_out: str = None):
+
+
+def fuse_scenes_timeline(
+        scene_paths: list,
+        transitions: list = None,
+        final_out: str = None):
     """
     scene_paths: list of local video file paths in order
     transitions: list of transition types between scenes (len = len(scene_paths)-1), options: 'crossfade','cut','speed_ramp'
     Returns: path to fused video
     """
     if not transitions:
-        transitions = ["crossfade"] * max(0, len(scene_paths)-1)
+        transitions = ["crossfade"] * max(0, len(scene_paths) - 1)
 
     clips = []
     for p in scene_paths:
@@ -3201,23 +3644,37 @@ def fuse_scenes_timeline(scene_paths: list, transitions: list = None, final_out:
             if i == 0:
                 out_clips.append(clip)
                 continue
-            ttype = transitions[i-1] if i-1 < len(transitions) else "crossfade"
+            ttype = transitions[i - 1] if i - \
+                1 < len(transitions) else "crossfade"
             prev = out_clips[-1]
             if ttype == "cut":
                 out_clips.append(clip)
             elif ttype == "speed_ramp":
-                # speed ramp: slow last 0.6s of prev and speed up first 0.6s of next
+                # speed ramp: slow last 0.6s of prev and speed up first 0.6s of
+                # next
                 ramp = 0.6
                 # clamp ramp to clip durations
-                ramp = min(ramp, prev.duration/2, clip.duration/2)
-                prev_slow = prev.fx(vfx.speedx, 0.9).subclip(max(0, prev.duration - ramp), prev.duration)
-                next_fast = clip.fx(vfx.speedx, 1.08).subclip(0, min(ramp, clip.duration))
-                middle = concatenate_videoclips([prev.subclip(0, prev.duration - ramp), prev_slow, next_fast, clip.subclip(min(ramp, clip.duration), clip.duration)], method="compose")
+                ramp = min(ramp, prev.duration / 2, clip.duration / 2)
+                prev_slow = prev.fx(vfx.speedx, 0.9).subclip(
+                    max(0, prev.duration - ramp), prev.duration)
+                next_fast = clip.fx(
+                    vfx.speedx, 1.08).subclip(
+                    0, min(
+                        ramp, clip.duration))
+                middle = concatenate_videoclips([prev.subclip(0,
+                                                              prev.duration - ramp),
+                                                 prev_slow,
+                                                 next_fast,
+                                                 clip.subclip(min(ramp,
+                                                                  clip.duration),
+                                                              clip.duration)],
+                                                method="compose")
                 # replace last with middle
                 out_clips[-1] = middle
             else:  # crossfade default
                 # crossfade of 0.6s (safe)
-                fused_pair = concatenate_videoclips([prev, clip.crossfadein(0.6)], method="compose")
+                fused_pair = concatenate_videoclips(
+                    [prev, clip.crossfadein(0.6)], method="compose")
                 out_clips[-1] = fused_pair
         # if out_clips has one big clip already
         if len(out_clips) == 1:
@@ -3229,8 +3686,15 @@ def fuse_scenes_timeline(scene_paths: list, transitions: list = None, final_out:
         # fallback: try naive concat
         fused = concatenate_videoclips(clips, method="compose")
 
-    out_name = final_out or (OUTPUT_FOLDER / f"fused_{uuid.uuid4().hex[:8]}.mp4")
-    fused.write_videofile(str(out_name), fps=24, codec="libx264", audio_codec="aac", threads=2, logger=None)
+    out_name = final_out or (OUTPUT_FOLDER /
+                             f"fused_{uuid.uuid4().hex[:8]}.mp4")
+    fused.write_videofile(
+        str(out_name),
+        fps=24,
+        codec="libx264",
+        audio_codec="aac",
+        threads=2,
+        logger=None)
     # close clips
     try:
         fused.close()
@@ -3241,6 +3705,8 @@ def fuse_scenes_timeline(scene_paths: list, transitions: list = None, final_out:
     return str(out_name)
 
 # ---------------- Flask endpoints ----------------
+
+
 @app.route("/ai/morph_emotion", methods=["POST"])
 def api_morph_emotion():
     """
@@ -3259,16 +3725,18 @@ def api_morph_emotion():
     else:
         src = request.form.get("audio_path")
         if not src:
-            return jsonify({"error":"audio required"}), 400
+            return jsonify({"error": "audio required"}), 400
         src = _abs_path(src)
 
     outp = OUTPUT_FOLDER / f"morphed_{target}_{uuid.uuid4().hex[:8]}.wav"
     try:
         morphed = morph_voice_emotion(src, str(outp), target_emotion=target)
-        return jsonify({"status":"ok","morphed_audio": str(Path(morphed).relative_to(BASE_DIR))})
+        return jsonify({"status": "ok", "morphed_audio": str(
+            Path(morphed).relative_to(BASE_DIR))})
     except Exception as e:
         log.exception("morph failed: %s", e)
-        return jsonify({"error":"morph failed","details":str(e)}), 500
+        return jsonify({"error": "morph failed", "details": str(e)}), 500
+
 
 @app.route("/scene/fuse", methods=["POST"])
 def api_scene_fuse():
@@ -3282,8 +3750,8 @@ def api_scene_fuse():
     scenes = data.get("scenes", [])
     transitions = data.get("transitions", [])
     if not scenes:
-        return jsonify({"error":"scenes required"}), 400
-    abs_scenes = [ _abs_path(s) for s in scenes ]
+        return jsonify({"error": "scenes required"}), 400
+    abs_scenes = [_abs_path(s) for s in scenes]
     try:
         out = fuse_scenes_timeline(abs_scenes, transitions)
         # optionally upload to firebase
@@ -3293,14 +3761,16 @@ def api_scene_fuse():
                 cloud = upload_to_firebase(out)
             except Exception:
                 cloud = None
-        return jsonify({"status":"ok","file": str(Path(out).relative_to(BASE_DIR)), "cloud_url": cloud})
+        return jsonify({"status": "ok", "file": str(
+            Path(out).relative_to(BASE_DIR)), "cloud_url": cloud})
     except Exception as e:
         log.exception("scene fuse failed: %s", e)
-        return jsonify({"error":"fuse failed","details":str(e)}), 500
+        return jsonify({"error": "fuse failed", "details": str(e)}), 500
 
 # ====================================================
 # UCVE v22 — Character–Voice Preset Management System
 # ====================================================
+
 
 @app.route("/preset/save", methods=["POST"])
 def save_user_preset():
@@ -3335,7 +3805,8 @@ def save_user_preset():
     db.session.add(preset)
     db.session.commit()
 
-    return jsonify({"status": "preset_saved", "preset_name": preset.preset_name})
+    return jsonify({"status": "preset_saved",
+                    "preset_name": preset.preset_name})
 
 
 @app.route("/preset/load", methods=["GET"])
@@ -3371,6 +3842,7 @@ def delete_user_preset():
     db.session.delete(preset)
     db.session.commit()
     return jsonify({"status": "preset_deleted"})
+
 
 # ------------------------------
 # 🧩 App Runner
