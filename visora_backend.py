@@ -10,7 +10,43 @@ Description:
     - Flask + JWT Auth + SQLite/Firestore hybrid
 """
 
-import os, json, uuid, logging, shutil, time, threading, tempfile, subprocess
+import openai
+import base64
+import datetime
+from flask import request, jsonify
+from typing import List, Tuple
+import shutil
+import tempfile
+import logging as log
+import uuid
+from moviepy.editor import (
+    vfx,
+    ImageClip,
+    concatenate_videoclips,
+    AudioFileClip
+)
+import textblob
+import urllib.parse
+import re
+import requests
+from botocore.exceptions import BotoCoreError, ClientError
+import boto3
+import atexit
+import subprocess
+import os
+from werkzeug.utils import secure_filename
+from queue import Queue, Empty
+import threading
+from functools import wraps
+import os
+import json
+import uuid
+import logging
+import shutil
+import time
+import threading
+import tempfile
+import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -44,6 +80,7 @@ from elevenlabs import generate, save
 from pydub import AudioSegment
 import random
 
+
 def generate_cinematic_video(prompt, duration=10):
     try:
         characters = ["male", "female", "child", "old"]
@@ -58,14 +95,19 @@ def generate_cinematic_video(prompt, duration=10):
         voice_id = voice_map[voice_type]
         voice_path = f"/tmp/{voice_type}_voice.mp3"
 
-        audio = generate(text=prompt, voice=voice_id, model="eleven_monolingual_v1")
+        audio = generate(
+    text=prompt,
+    voice=voice_id,
+     model="eleven_monolingual_v1")
         save(audio, voice_path)
 
         video_path = "/tmp/bg_cinematic.mp4"
-        os.system(f"ffmpeg -y -f lavfi -i color=c=black:s=1080x1920:d={duration} {video_path}")
+        os.system(
+    f"ffmpeg -y -f lavfi -i color=c=black:s=1080x1920:d={duration} {video_path}")
 
         bgm_path = "/tmp/bgm.mp3"
-        os.system(f"ffmpeg -y -i https://cdn.pixabay.com/audio/2023/03/01/audio_51c2a5d7b3.mp3 -ss 0 -t {duration} {bgm_path}")
+        os.system(
+    f"ffmpeg -y -i https://cdn.pixabay.com/audio/2023/03/01/audio_51c2a5d7b3.mp3 -ss 0 -t {duration} {bgm_path}")
 
         voice = AudioSegment.from_file(voice_path)
         bgm = AudioSegment.from_file(bgm_path).apply_gain(-10)
@@ -73,7 +115,8 @@ def generate_cinematic_video(prompt, duration=10):
         final_audio.export("/tmp/final_audio.mp3", format="mp3")
 
         final_output = "/tmp/final_output.mp4"
-        os.system("ffmpeg -y -i /tmp/bg_cinematic.mp4 -i /tmp/final_audio.mp3 -shortest /tmp/final_output.mp4")
+        os.system(
+            "ffmpeg -y -i /tmp/bg_cinematic.mp4 -i /tmp/final_audio.mp3 -shortest /tmp/final_output.mp4")
 
         return final_output
     except Exception as e:
@@ -83,8 +126,11 @@ def generate_cinematic_video(prompt, duration=10):
 # ==============================================
 # Wrapper to connect cinematic generator with API
 # ==============================================
+
+
 def build_ai_composed_video(script_text):
     return generate_cinematic_video(script_text, 10)
+
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION
@@ -100,7 +146,7 @@ CORS(app)
 
 app.config.update({
     "SECRET_KEY": os.getenv("SECRET_KEY", "visora-secret"),
-    "SQLALCHEMY_DATABASE_URI": os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR/'visora.db'}"),
+    "SQLALCHEMY_DATABASE_URI": os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'visora.db'}"),
     "SQLALCHEMY_TRACK_MODIFICATIONS": False,
     "JWT_EXPIRY": 48,  # hours
 })
@@ -112,6 +158,8 @@ logging.basicConfig(level=logging.INFO)
 # ----------------------------------------------------------------------------
 # DATABASE MODELS
 # ----------------------------------------------------------------------------
+
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -123,6 +171,7 @@ class User(db.Model):
     country = db.Column(db.String(50), default="India")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+
 class Video(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_email = db.Column(db.String(120))
@@ -132,6 +181,7 @@ class Video(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     meta = db.Column(db.Text)
 
+
 class Template(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120))
@@ -139,12 +189,14 @@ class Template(db.Model):
     thumbnail = db.Column(db.String(512))
     trending = db.Column(db.Integer, default=0)
 
+
 class Character(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_email = db.Column(db.String(120))
     name = db.Column(db.String(100))
     photo_path = db.Column(db.String(512))
     voice_path = db.Column(db.String(512))
+
 
 class Plan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -155,9 +207,13 @@ class Plan(db.Model):
 # ----------------------------------------------------------------------------
 # UTILS
 # ----------------------------------------------------------------------------
+
+
 def token_create(email: str):
     exp = datetime.utcnow() + timedelta(hours=app.config["JWT_EXPIRY"])
-    return jwt.encode({"email": email, "exp": exp}, app.config["SECRET_KEY"], algorithm="HS256")
+    return jwt.encode({"email": email, "exp": exp},
+                      app.config["SECRET_KEY"], algorithm="HS256")
+
 
 def token_verify(token: str):
     try:
@@ -165,11 +221,13 @@ def token_verify(token: str):
     except Exception:
         return None
 
+
 def save_file(fs, folder="uploads") -> str:
     filename = secure_name(fs.filename)
     dest = Path(folder) / filename
     fs.save(dest)
     return str(dest)
+
 
 def secure_name(name: str) -> str:
     name = name.replace(" ", "_")
@@ -181,19 +239,19 @@ def secure_name(name: str) -> str:
 
 # ====================== AUTH ENDPOINTS ======================
 
-from flask import request, jsonify
-import jwt, datetime
-from functools import wraps
 
 SECRET_KEY = "your_secret_key_here"
 
 # ---------------- JWT Helper Functions ----------------
+
+
 def token_create(email):
     payload = {
         "email": email,
         "exp": datetime.datetime.utcnow() + datetime.timedelta(days=3)
     }
     return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
 
 def token_verify(token):
     try:
@@ -205,6 +263,8 @@ def token_verify(token):
         return None
 
 # ---------------- REGISTER ----------------
+
+
 @app.route("/register", methods=["POST"])
 def register():
     data = request.get_json(force=True)
@@ -270,6 +330,7 @@ def profile():
         "country": getattr(u, "country", "Unknown")
     }), 200
 
+
 # ----------------------------------------------------------------------------
 # INIT DATABASE
 # ----------------------------------------------------------------------------
@@ -278,8 +339,14 @@ with app.app_context():
     if not Plan.query.first():
         db.session.add_all([
             Plan(name="Free", price="0", features="480p renders, 5 credits/day"),
-            Plan(name="Pro", price="499", features="1080p renders, 50 credits/day"),
-            Plan(name="Enterprise", price="999", features="4K renders, unlimited renders")
+            Plan(
+    name="Pro",
+    price="499",
+     features="1080p renders, 50 credits/day"),
+            Plan(
+    name="Enterprise",
+    price="999",
+     features="4K renders, unlimited renders")
         ])
         db.session.commit()
 
@@ -287,11 +354,8 @@ print("✅ Visora Backend Part 1 Loaded")
 
 # ----------------------------------------------------------------------------
 # NOTE: Continue to Part 2 → Video Rendering, Assistant, Templates, Admin
-# ----------------------------------------------------------------------------# -------------------- Part 2: Rendering Queue, Video endpoints, TTS, Assistant, Admin --------------------
+# ------------------------------------------------------------------------
 
-import threading
-from queue import Queue, Empty
-from werkzeug.utils import secure_filename
 
 # Globals for render jobs
 render_queue = Queue()
@@ -299,6 +363,8 @@ render_jobs: Dict[str, Dict[str, Any]] = {}
 RENDER_WORKER_SLEEP = 0.8
 
 # Helper: absolute path from relative
+
+
 def abs_path(p: str) -> str:
     if not p:
         return p
@@ -308,7 +374,14 @@ def abs_path(p: str) -> str:
     return str(p.resolve())
 
 # Simple movie rendering (moviepy) or fallback mock
-def render_images_with_audios(image_paths: List[str], audio_paths: List[str], out_path: str, quality: str = "HD", bg_music: Optional[str] = None):
+
+
+def render_images_with_audios(
+    image_paths: List[str],
+    audio_paths: List[str],
+    out_path: str,
+    quality: str = "HD",
+     bg_music: Optional[str] = None):
     """
     - image_paths: list of absolute or relative image file paths
     - audio_paths: list of absolute or relative audio file paths (matching characters)
@@ -331,21 +404,38 @@ def render_images_with_audios(image_paths: List[str], audio_paths: List[str], ou
                 listfile.write(f"file '{abs_path(img)}'\n".encode())
                 listfile.write(b"duration 2\n")
             listfile.flush(); listfile.close()
-            cmd += ["-f", "concat", "-safe", "0", "-i", listfile.name, "-vf", "scale=1280:-2", "-c:v", "libx264", "-r", "24", "-pix_fmt", "yuv420p", out_path]
+            cmd += ["-f",
+    "concat",
+    "-safe",
+    "0",
+    "-i",
+    listfile.name,
+    "-vf",
+    "scale=1280:-2",
+    "-c:v",
+    "libx264",
+    "-r",
+    "24",
+    "-pix_fmt",
+    "yuv420p",
+     out_path]
             subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             try:
                 os.unlink(listfile.name)
             except: pass
             return
         except Exception as e:
-            raise RuntimeError(f"MoviePy missing and ffmpeg fallback failed: {e}")
+            raise RuntimeError(
+    f"MoviePy missing and ffmpeg fallback failed: {e}")
 
     # MoviePy actual flow
     clips = []
     audios = []
-    n = min(len(image_paths), len(audio_paths)) if audio_paths else len(image_paths)
+    n = min(len(image_paths), len(audio_paths)
+            ) if audio_paths else len(image_paths)
     if n == 0:
-        raise ValueError("Need at least one image and one audio (or one image to make video).")
+        raise ValueError(
+            "Need at least one image and one audio (or one image to make video).")
 
     for i in range(n):
         img = abs_path(image_paths[i])
@@ -369,11 +459,16 @@ def render_images_with_audios(image_paths: List[str], audio_paths: List[str], ou
                 # loop bg
                 from moviepy.editor import concatenate_audioclips
                 times = int(final.duration / bg.duration) + 1
-                bg = concatenate_audioclips([bg] * times).subclip(0, final.duration)
+                bg = concatenate_audioclips(
+    [bg] *
+    times).subclip(
+        0,
+         final.duration)
             else:
                 bg = bg.subclip(0, final.duration)
             bg = bg.volumex(0.12)
-            final_audio = CompositeAudioClip([final.audio, bg]) if final.audio else bg
+            final_audio = CompositeAudioClip(
+                [final.audio, bg]) if final.audio else bg
             final = final.set_audio(final_audio)
         except Exception as e:
             log.exception("bg music attach failed: %s", e)
@@ -383,13 +478,20 @@ def render_images_with_audios(image_paths: List[str], audio_paths: List[str], ou
         bitrate = "8000k"
     elif quality and "1080" in quality.lower():
         bitrate = "2500k"
-    final.write_videofile(out_path, fps=24, codec="libx264", audio_codec="aac", bitrate=bitrate)
+    final.write_videofile(
+    out_path,
+    fps=24,
+    codec="libx264",
+    audio_codec="aac",
+     bitrate=bitrate)
     final.close()
     for a in audios:
         try: a.close()
         except: pass
 
 # Render worker thread
+
+
 def worker_loop():
     log.info("Render worker started")
     while True:
@@ -413,7 +515,8 @@ def worker_loop():
             # Run the render
             render_images_with_audios(images, audios, out_abs, bg, quality)
             render_jobs[job_id]["status"] = "done"
-            render_jobs[job_id]["output"] = str(Path(out_abs).relative_to(BASE_DIR))
+            render_jobs[job_id]["output"] = str(
+                Path(out_abs).relative_to(BASE_DIR))
 
             # Save DB record if video record provided
             vid_id = job.get("video_db_id")
@@ -448,6 +551,8 @@ def worker_loop():
                 log.warning(f"⚠️ Task cleanup failed: {e}")
 
 # -------------------- API: generate_video --------------------
+
+
 @app.route("/generate_video", methods=["POST"])
 def generate_video():
     """
@@ -462,18 +567,18 @@ def generate_video():
     - script (optional)
     """
     # auth fallback
-    token = request.headers.get("Authorization","").replace("Bearer ","")
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
     user_email = None
     if token:
         decoded = token_verify(token)
         user_email = decoded.get("email") if decoded else None
     if not user_email:
-        user_email = request.form.get("user_email","demo@visora.com")
+        user_email = request.form.get("user_email", "demo@visora.com")
 
     title = request.form.get("title") or f"Visora_{uuid.uuid4().hex[:8]}"
-    template = request.form.get("template","Default")
-    quality = request.form.get("quality","HD")
-    script = request.form.get("script","")
+    template = request.form.get("template", "Default")
+    quality = request.form.get("quality", "HD")
+    script = request.form.get("script", "")
     # handle bg music upload
     bg_music_rel = None
     if "bg_music_file" in request.files:
@@ -512,12 +617,17 @@ def generate_video():
             audios.append(str(dest))
 
     # create DB record
-    v = Video(user_email=user_email, title=title, status="queued", meta=json.dumps({"template": template, "script": script}))
+    v = Video(user_email=user_email, title=title, status="queued",
+              meta=json.dumps({"template": template, "script": script}))
     db.session.add(v); db.session.commit()
 
     # enqueue
     job_id = uuid.uuid4().hex
-    render_jobs[job_id] = {"job_id": job_id, "status": "queued", "created_at": datetime.utcnow().isoformat(), "title": title}
+    render_jobs[job_id] = {
+    "job_id": job_id,
+    "status": "queued",
+    "created_at": datetime.utcnow().isoformat(),
+     "title": title}
     job_payload = {
         "job_id": job_id,
         "video_db_id": v.id,
@@ -529,24 +639,30 @@ def generate_video():
     render_queue.put(job_payload)
     render_jobs[job_id]["queued_at"] = datetime.utcnow().isoformat()
 
-    return jsonify({"message":"enqueued", "job_id": job_id, "video_id": v.id})
+    return jsonify({"message": "enqueued", "job_id": job_id, "video_id": v.id})
 
 # -------------------- API: job_status --------------------
+
+
 @app.route("/job_status", methods=["GET"])
 def job_status():
     job_id = request.args.get("job_id")
     if not job_id:
-        return jsonify({"error":"job_id required"}), 400
+        return jsonify({"error": "job_id required"}), 400
     j = render_jobs.get(job_id)
     if not j:
-        return jsonify({"error":"not found"}), 404
+        return jsonify({"error": "not found"}), 404
     return jsonify(j)
 
 # -------------------- Gallery list --------------------
+
+
 @app.route("/gallery", methods=["GET"])
 def gallery_list():
-    user = request.args.get("user_email","demo@visora.com")
-    vids = Video.query.filter_by(user_email=user).order_by(Video.created_at.desc()).all()
+    user = request.args.get("user_email", "demo@visora.com")
+    vids = Video.query.filter_by(
+    user_email=user).order_by(
+        Video.created_at.desc()).all()
     out = []
     for v in vids:
         meta = {}
@@ -554,16 +670,23 @@ def gallery_list():
             meta = json.loads(v.meta) if v.meta else {}
         except:
             meta = {}
-        out.append({"id": v.id, "title": v.title, "status": v.status, "file": v.file_path, "meta": meta, "created_at": v.created_at.isoformat()})
+        out.append({"id": v.id,
+    "title": v.title,
+    "status": v.status,
+    "file": v.file_path,
+    "meta": meta,
+     "created_at": v.created_at.isoformat()})
     return jsonify(out)
 
 # -------------------- Voice upload & preview --------------------
+
+
 @app.route("/upload_voice", methods=["POST"])
 def upload_voice_file():
-    token = request.headers.get("Authorization","").replace("Bearer ","")
-    user_email = request.form.get("user_email","demo@visora.com")
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    user_email = request.form.get("user_email", "demo@visora.com")
     if "file" not in request.files:
-        return jsonify({"error":"no file"}), 400
+        return jsonify({"error": "no file"}), 400
     f = request.files["file"]
     fname = secure_filename(f.filename)
     destdir = UPLOAD_DIR / "voices"
@@ -580,12 +703,13 @@ def upload_voice_file():
                 db.session.commit()
     return jsonify({"saved": str(dest)})
 
+
 @app.route("/preview_tts", methods=["POST"])
 def preview_tts():
     if not GTTS_AVAILABLE:
-        return jsonify({"error":"gTTS not available"}), 500
+        return jsonify({"error": "gTTS not available"}), 500
     text = request.form.get("text", "Hello from Visora")
-    lang = request.form.get("lang","hi")
+    lang = request.form.get("lang", "hi")
     try:
         uid = uuid.uuid4().hex
         out = UPLOAD_DIR / "tmp" / f"tts_{uid}.mp3"
@@ -594,46 +718,66 @@ def preview_tts():
         return jsonify({"audio": str(out)})
     except Exception as e:
         log.exception("TTS failed")
-        return jsonify({"error":"tts failed","details":str(e)}),500
+        return jsonify({"error": "tts failed", "details": str(e)}), 500
 
-# -------------------- AI Assistant (OpenAI integration ready) --------------------
+
+# -------------------- AI Assistant (OpenAI integration ready) -----------
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # default; you can set GPT-5 model name
+# default; you can set GPT-5 model name
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
 
 def assistant_generate_local(prompt: str, tone: str = "helpful"):
     # Simple local heuristic fallback when OpenAI key missing
     if tone == "funny":
         return f"😂 Funny start idea: \"Guess what... {prompt[:80]}\""
     if tone == "motivational":
-        return f"🔥 Motivational hook: Start with 'Never give up...' then mention {prompt[:80]}"
+        return f"🔥 Motivational hook: Start with 'Never give up...' then mention {
+    prompt[
+        :80]}"
     return f"Try a punchy hook: '{prompt[:60]}...' and close with a one-line CTA."
+
 
 @app.route("/assistant", methods=["POST"])
 def assistant_api():
     data = request.get_json() or {}
-    prompt = data.get("query","")
-    tone = data.get("tone","helpful")
-    lang = data.get("lang","en")
+    prompt = data.get("query", "")
+    tone = data.get("tone", "helpful")
+    lang = data.get("lang", "en")
     # If OPENAI_KEY exists, call OpenAI
     if OPENAI_KEY:
         try:
             import requests
-            headers = {"Authorization": f"Bearer {OPENAI_KEY}", "Content-Type": "application/json"}
+            headers = {
+    "Authorization": f"Bearer {OPENAI_KEY}",
+     "Content-Type": "application/json"}
             body = {
                 "model": OPENAI_MODEL,
                 "input": f"Tone: {tone}\nPrompt: {prompt}"
             }
-            # Using Chat Completions or Responses endpoint depends on OpenAI setup
-            resp = requests.post("https://api.openai.com/v1/responses", headers=headers, json=body, timeout=30)
+            # Using Chat Completions or Responses endpoint depends on OpenAI
+            # setup
+            resp = requests.post(
+    "https://api.openai.com/v1/responses",
+    headers=headers,
+    json=body,
+     timeout=30)
             if resp.status_code == 200:
                 j = resp.json()
                 # try to extract reply text
                 text = ""
                 if "output" in j and isinstance(j["output"], list):
-                    pieces = [p.get("content","") if isinstance(p, dict) else str(p) for p in j["output"]]
+                    pieces = [
+    p.get(
+        "content",
+        "") if isinstance(
+            p,
+             dict) else str(p) for p in j["output"]]
                     text = " ".join(pieces)
                 elif "choices" in j and j["choices"]:
-                    text = j["choices"][0].get("message", {}).get("content", "")
+                    text = j["choices"][0].get(
+    "message", {}).get(
+        "content", "")
                 else:
                     text = str(j)
                 # optionally gTTS audio
@@ -641,7 +785,8 @@ def assistant_api():
                 if GTTS_AVAILABLE:
                     try:
                         uid = uuid.uuid4().hex
-                        out = UPLOAD_DIR / "assistant_audio" / f"assistant_{uid}.mp3"
+                        out = UPLOAD_DIR / "assistant_audio" / \
+                            f"assistant_{uid}.mp3"
                         out.parent.mkdir(parents=True, exist_ok=True)
                         # choose language param (basic)
                         gTTS(text, lang=lang).save(str(out))
@@ -652,34 +797,43 @@ def assistant_api():
             else:
                 log.warning("OpenAI error %s %s", resp.status_code, resp.text)
                 # fallback
-                return jsonify({"reply": assistant_generate_local(prompt, tone)}), 200
+                return jsonify(
+                    {"reply": assistant_generate_local(prompt, tone)}), 200
         except Exception as e:
             log.exception("OpenAI call failed")
-            return jsonify({"reply": assistant_generate_local(prompt, tone), "error": str(e)}), 200
+            return jsonify({"reply": assistant_generate_local(
+                prompt, tone), "error": str(e)}), 200
     else:
         # local fallback
         return jsonify({"reply": assistant_generate_local(prompt, tone)}), 200
 
 # -------------------- Templates & Admin endpoints --------------------
+
+
 @app.route("/templates", methods=["GET"])
 def api_templates():
     tpls = Template.query.order_by(Template.trending.desc()).all()
-    out = [{"id": t.id, "name": t.name, "category": t.category, "thumbnail": t.thumbnail, "trending": t.trending} for t in tpls]
+    out = [{"id": t.id, "name": t.name, "category": t.category,
+        "thumbnail": t.thumbnail, "trending": t.trending} for t in tpls]
     return jsonify(out)
+
 
 @app.route("/admin/templates", methods=["POST"])
 def admin_create_template():
     data = request.get_json() or {}
-    name = data.get("name"); cat = data.get("category","General"); thumb = data.get("thumbnail","")
+    name = data.get("name"); cat = data.get(
+    "category", "General"); thumb = data.get(
+        "thumbnail", "")
     t = Template(name=name, category=cat, thumbnail=thumb)
     db.session.add(t); db.session.commit()
-    return jsonify({"message":"created","id": t.id})
+    return jsonify({"message": "created", "id": t.id})
 
-@app.route("/admin/templates/<int:tid>", methods=["PUT","DELETE"])
+
+@app.route("/admin/templates/<int:tid>", methods=["PUT", "DELETE"])
 def admin_update_template(tid):
     t = Template.query.get(tid)
     if not t:
-        return jsonify({"error":"not found"}), 404
+        return jsonify({"error": "not found"}), 404
     if request.method == "PUT":
         data = request.get_json() or {}
         t.name = data.get("name", t.name)
@@ -687,45 +841,51 @@ def admin_update_template(tid):
         t.thumbnail = data.get("thumbnail", t.thumbnail)
         t.trending = data.get("trending", t.trending)
         db.session.commit()
-        return jsonify({"message":"updated"})
+        return jsonify({"message": "updated"})
     else:
         db.session.delete(t); db.session.commit()
-        return jsonify({"message":"deleted"})
+        return jsonify({"message": "deleted"})
 
 # Admin: user management
+
+
 @app.route("/admin/users", methods=["GET"])
 def admin_list_users():
     users = User.query.all()
-    out = [{"email": u.email, "name": u.name, "plan": u.plan, "credits": u.credits} for u in users]
+    out = [{"email": u.email, "name": u.name,
+        "plan": u.plan, "credits": u.credits} for u in users]
     return jsonify(out)
+
 
 @app.route("/admin/users/<string:email>/credits", methods=["POST"])
 def admin_modify_credits(email):
     data = request.get_json() or {}
-    delta = int(data.get("delta",0))
+    delta = int(data.get("delta", 0))
     u = User.query.filter_by(email=email).first()
     if not u:
-        return jsonify({"error":"not found"}), 404
+        return jsonify({"error": "not found"}), 404
     u.credits = max(0, u.credits + delta)
     db.session.commit()
-    return jsonify({"message":"ok","credits": u.credits})
+    return jsonify({"message": "ok", "credits": u.credits})
 
 # Simple analytics
+
+
 @app.route("/admin/analytics", methods=["GET"])
 def admin_analytics():
     total_users = User.query.count()
     total_videos = Video.query.count()
     pending = Video.query.filter_by(status="queued").count()
     done = Video.query.filter_by(status="done").count()
-    return jsonify({"users": total_users, "videos": total_videos, "pending": pending, "done": done})
+    return jsonify({"users": total_users,
+    "videos": total_videos,
+    "pending": pending,
+     "done": done})
 
-print("✅ Visora Backend Part 2 Loaded")# -------------------- Part 3: Payments, Cloud Sync, Conversion, Scheduler, Deployment helpers --------------------
 
-import os
-import subprocess
-import atexit
-import boto3
-from botocore.exceptions import BotoCoreError, ClientError
+# -------------------- Part 3: Payments, Cloud Sync, Conversion, Scheduler
+print("✅ Visora Backend Part 2 Loaded")
+
 
 # Optional: firebase admin
 try:
@@ -743,7 +903,6 @@ except Exception:
     RAZORPAY_AVAILABLE = False
 
 # PayPal (we will use requests)
-import requests
 
 # ---------- Config from env ----------
 AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET")
@@ -751,7 +910,8 @@ AWS_S3_REGION = os.getenv("AWS_S3_REGION", "us-east-1")
 AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 
-FIREBASE_CRED_JSON = os.getenv("FIREBASE_CRED_JSON")  # path to service account json (optional)
+# path to service account json (optional)
+FIREBASE_CRED_JSON = os.getenv("FIREBASE_CRED_JSON")
 FIREBASE_BUCKET = os.getenv("FIREBASE_BUCKET")
 
 PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID")
@@ -765,7 +925,11 @@ RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
 s3_client = None
 if AWS_ACCESS_KEY and AWS_SECRET_KEY and AWS_S3_BUCKET:
     try:
-        s3_client = boto3.client("s3", region_name=AWS_S3_REGION, aws_access_key_id=AWS_ACCESS_KEY, aws_secret_access_key=AWS_SECRET_KEY)
+        s3_client = boto3.client(
+    "s3",
+    region_name=AWS_S3_REGION,
+    aws_access_key_id=AWS_ACCESS_KEY,
+     aws_secret_access_key=AWS_SECRET_KEY)
         log.info("S3 client initialized for bucket %s", AWS_S3_BUCKET)
     except Exception as e:
         log.exception("Failed to init S3 client: %s", e)
@@ -785,19 +949,24 @@ if FIREBASE_AVAILABLE and FIREBASE_CRED_JSON:
 razor_client = None
 if RAZORPAY_AVAILABLE and RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
     try:
-        razor_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+        razor_client = razorpay.Client(
+            auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
         log.info("Razorpay client initialized")
     except Exception as e:
         log.exception("Razorpay init failed: %s", e)
         razor_client = None
 
 # ---------- Helper: upload to S3 ----------
+
+
 def upload_file_to_s3(local_path: str, key: str) -> Optional[str]:
     if not s3_client:
         log.warning("S3 not configured")
         return None
     try:
-        s3_client.upload_file(local_path, AWS_S3_BUCKET, key, ExtraArgs={"ACL":"public-read"})
+        s3_client.upload_file(
+    local_path, AWS_S3_BUCKET, key, ExtraArgs={
+        "ACL": "public-read"})
         url = f"https://{AWS_S3_BUCKET}.s3.{AWS_S3_REGION}.amazonaws.com/{key}"
         return url
     except Exception as e:
@@ -805,6 +974,8 @@ def upload_file_to_s3(local_path: str, key: str) -> Optional[str]:
         return None
 
 # ---------- Helper: upload to Firebase ----------
+
+
 def upload_file_to_firebase(local_path: str, dest_name: str) -> Optional[str]:
     if not FIREBASE_AVAILABLE:
         log.warning("Firebase not available")
@@ -824,6 +995,8 @@ def upload_file_to_firebase(local_path: str, dest_name: str) -> Optional[str]:
         return None
 
 # ---------- Payments endpoints (Razorpay + PayPal) ----------
+
+
 @app.route("/create_razorpay_order", methods=["POST"])
 def create_razorpay_order_endpoint():
     data = request.get_json() or {}
@@ -832,25 +1005,39 @@ def create_razorpay_order_endpoint():
     receipt = f"order_{uuid.uuid4().hex[:8]}"
     if razor_client:
         try:
-            order = razor_client.order.create({"amount": amount * 100, "currency": currency, "receipt": receipt})
+            order = razor_client.order.create(
+                {"amount": amount * 100, "currency": currency, "receipt": receipt})
             return jsonify({"order": order})
         except Exception as e:
             log.exception("Razorpay create order failed")
             return jsonify({"error": "razorpay_error", "details": str(e)}), 500
     else:
         # sandbox mock
-        return jsonify({"order": {"id": "mock_"+receipt, "amount": amount * 100, "currency": currency}})
+        return jsonify({"order": {"id": "mock_" + receipt,
+                       "amount": amount * 100, "currency": currency}})
 
 # PayPal token helper
+
+
 def paypal_get_token():
     base = "https://api-m.sandbox.paypal.com" if PAYPAL_SANDBOX else "https://api-m.paypal.com"
     try:
-        resp = requests.post(f"{base}/v1/oauth2/token", auth=(PAYPAL_CLIENT_ID, PAYPAL_SECRET), headers={"Accept":"application/json"}, data={"grant_type":"client_credentials"}, timeout=10)
+        resp = requests.post(
+    f"{base}/v1/oauth2/token",
+    auth=(
+        PAYPAL_CLIENT_ID,
+        PAYPAL_SECRET),
+        headers={
+            "Accept": "application/json"},
+            data={
+                "grant_type": "client_credentials"},
+                 timeout=10)
         if resp.status_code == 200:
             return resp.json().get("access_token")
     except Exception as e:
         log.exception("PayPal token failed: %s", e)
     return None
+
 
 @app.route("/create_paypal_order", methods=["POST"])
 def create_paypal_order_endpoint():
@@ -858,23 +1045,36 @@ def create_paypal_order_endpoint():
     amount = data.get("amount", "4.99")
     currency = data.get("currency", "USD")
     if not PAYPAL_CLIENT_ID or not PAYPAL_SECRET:
-        return jsonify({"error": "paypal_not_configured", "sandbox": True}), 501
+        return jsonify(
+            {"error": "paypal_not_configured", "sandbox": True}), 501
     token = paypal_get_token()
     if not token:
-        return jsonify({"error":"paypal_token_failed"}), 500
+        return jsonify({"error": "paypal_token_failed"}), 500
     base = "https://api-m.sandbox.paypal.com" if PAYPAL_SANDBOX else "https://api-m.paypal.com"
     body = {
         "intent": "CAPTURE",
         "purchase_units": [{"amount": {"currency_code": currency, "value": str(amount)}}]
     }
-    resp = requests.post(f"{base}/v2/checkout/orders", headers={"Authorization": f"Bearer {token}", "Content-Type":"application/json"}, json=body, timeout=15)
-    if resp.status_code in (200,201):
+    resp = requests.post(
+    f"{base}/v2/checkout/orders",
+    headers={
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"},
+        json=body,
+         timeout=15)
+    if resp.status_code in (200, 201):
         return jsonify(resp.json())
     else:
-        log.warning("PayPal create order failed: %s %s", resp.status_code, resp.text)
-        return jsonify({"error":"paypal_create_failed","details":resp.text}), 500
+        log.warning(
+    "PayPal create order failed: %s %s",
+    resp.status_code,
+     resp.text)
+        return jsonify({"error": "paypal_create_failed",
+                       "details": resp.text}), 500
 
 # ---------- FFmpeg based conversion/compression endpoints ----------
+
+
 def ffmpeg_installed() -> bool:
     try:
         subprocess.check_output(["ffmpeg", "-version"])
@@ -882,12 +1082,14 @@ def ffmpeg_installed() -> bool:
     except Exception:
         return False
 
+
 FFMPEG_AVAILABLE = ffmpeg_installed()
+
 
 @app.route("/convert/video_to_audio", methods=["POST"])
 def video_to_audio():
     if "file" not in request.files:
-        return jsonify({"error":"no file"}), 400
+        return jsonify({"error": "no file"}), 400
     f = request.files["file"]
     fname = secure_filename(f.filename)
     tempdir = Path("/tmp") / "visora"
@@ -897,20 +1099,35 @@ def video_to_audio():
     out = tempdir / f"{fp.stem}.mp3"
     try:
         if not FFMPEG_AVAILABLE:
-            return jsonify({"error":"ffmpeg not available"}), 500
-        cmd = ["ffmpeg","-y","-i", str(fp), "-vn","-acodec","libmp3lame","-q:a","2", str(out)]
+            return jsonify({"error": "ffmpeg not available"}), 500
+        cmd = [
+    "ffmpeg",
+    "-y",
+    "-i",
+    str(fp),
+    "-vn",
+    "-acodec",
+    "libmp3lame",
+    "-q:a",
+    "2",
+     str(out)]
         subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         return jsonify({"audio": str(out)})
     except subprocess.CalledProcessError as e:
-        log.exception("ffmpeg convert failed: %s", e.output if hasattr(e,"output") else e)
-        return jsonify({"error":"convert_failed"}), 500
+        log.exception(
+    "ffmpeg convert failed: %s",
+    e.output if hasattr(
+        e,
+         "output") else e)
+        return jsonify({"error": "convert_failed"}), 500
+
 
 @app.route("/compress/video", methods=["POST"])
 def compress_video():
     # accepts file upload, target_bitrate optional (e.g., 800k)
     if "file" not in request.files:
-        return jsonify({"error":"no file"}), 400
-    target = request.form.get("target_bitrate","800k")
+        return jsonify({"error": "no file"}), 400
+    target = request.form.get("target_bitrate", "800k")
     f = request.files["file"]
     fname = secure_filename(f.filename)
     tempdir = Path("/tmp") / "visora"
@@ -920,32 +1137,52 @@ def compress_video():
     out = tempdir / f"{fp.stem}_compressed.mp4"
     try:
         if not FFMPEG_AVAILABLE:
-            return jsonify({"error":"ffmpeg not available"}), 500
-        cmd = ["ffmpeg","-y","-i", str(fp), "-b:v", target, "-bufsize", target, "-maxrate", target, str(out)]
+            return jsonify({"error": "ffmpeg not available"}), 500
+        cmd = [
+    "ffmpeg",
+    "-y",
+    "-i",
+    str(fp),
+    "-b:v",
+    target,
+    "-bufsize",
+    target,
+    "-maxrate",
+    target,
+     str(out)]
         subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=120)
         return jsonify({"output": str(out)})
     except Exception as e:
         log.exception("compress failed: %s", e)
-        return jsonify({"error":"compress_failed","details":str(e)}), 500
+        return jsonify({"error": "compress_failed", "details": str(e)}), 500
 
 # ---------- Audio -> Text (Whisper stub) ----------
+
+
 @app.route("/audio_to_text", methods=["POST"])
 def audio_to_text():
     # This is a stub: integrate Whisper or OpenAI Whisper API
     if "file" not in request.files:
-        return jsonify({"error":"no file"}), 400
+        return jsonify({"error": "no file"}), 400
     # Save file and return mock transcription
     f = request.files["file"]
     fname = secure_filename(f.filename)
     fp = UPLOAD_DIR / "audio" / f"{uuid.uuid4().hex}_{fname}"
     fp.parent.mkdir(parents=True, exist_ok=True)
     f.save(fp)
-    # In production: call Whisper or OpenAI transcription and return real result
-    return jsonify({"transcript": f"(mock) Transcription for {fname}", "file": str(fp)})
+    # In production: call Whisper or OpenAI transcription and return real
+    # result
+    return jsonify(
+        {"transcript": f"(mock) Transcription for {fname}", "file": str(fp)})
+
 
 # ---------- Scheduler: cleanup tmp files and optional upload sync ----------
-CLEANUP_INTERVAL = int(os.getenv("CLEANUP_INTERVAL_SEC", 3600))  # default 1 hour
+CLEANUP_INTERVAL = int(
+    os.getenv(
+        "CLEANUP_INTERVAL_SEC",
+         3600))  # default 1 hour
 FILE_RETENTION_DAYS = int(os.getenv("FILE_RETENTION_DAYS", 7))
+
 
 def cleanup_tmp_and_old_outputs():
     log.info("Cleanup thread started")
@@ -956,22 +1193,30 @@ def cleanup_tmp_and_old_outputs():
             if tmpdir.exists():
                 for f in tmpdir.iterdir():
                     try:
-                        if f.is_file() and (time.time() - f.stat().st_mtime) > (3600 * 24 * FILE_RETENTION_DAYS):
+                        if f.is_file() and (
+    time.time() -
+    f.stat().st_mtime) > (
+        3600 *
+        24 *
+         FILE_RETENTION_DAYS):
                             f.unlink()
                     except Exception:
                         pass
-            # outputs cleanup (optionally upload to S3 or Firebase before deletion)
+            # outputs cleanup (optionally upload to S3 or Firebase before
+            # deletion)
             for out in OUTPUT_DIR.iterdir():
                 try:
                     if out.is_file():
-                        age_days = (time.time() - out.stat().st_mtime) / (3600*24)
+                        age_days = (
+                            time.time() - out.stat().st_mtime) / (3600 * 24)
                         if age_days > FILE_RETENTION_DAYS:
                             # optional upload before deletion
                             key = f"backups/{out.name}"
                             if s3_client:
                                 upload_file_to_s3(str(out), key)
                             elif FIREBASE_AVAILABLE:
-                                upload_file_to_firebase(str(out), f"backups/{out.name}")
+                                upload_file_to_firebase(
+                                    str(out), f"backups/{out.name}")
                             out.unlink()
                 except Exception:
                     pass
@@ -979,10 +1224,14 @@ def cleanup_tmp_and_old_outputs():
             log.exception("Cleanup iteration failed: %s", e)
         time.sleep(CLEANUP_INTERVAL)
 
-cleanup_thread = threading.Thread(target=cleanup_tmp_and_old_outputs, daemon=True)
+
+cleanup_thread = threading.Thread(
+    target=cleanup_tmp_and_old_outputs, daemon=True)
 cleanup_thread.start()
 
 # Ensure graceful exit
+
+
 def on_exit():
     log.info("Shutting down: waiting render queue to finish")
     try:
@@ -990,12 +1239,12 @@ def on_exit():
     except Exception:
         pass
 
+
 atexit.register(on_exit)
 
 print("✅ Visora Backend Part 3 Loaded")
 
-# -------------------- 3-Layer Voice System (ElevenLabs + OpenAI + gTTS) --------------------
-import base64, requests, openai
+# -------------------- 3-Layer Voice System (ElevenLabs + OpenAI + gTTS) -
 
 ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "")
 ELEVEN_VOICE_ID = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
@@ -1010,6 +1259,7 @@ CHARACTER_VOICES = {
     "C4": {"type": "old", "voice": "George"},
 }
 
+
 def generate_character_voice(character_tag, text):
     """
     Generate cinematic voice per character with fallback (ElevenLabs → OpenAI → gTTS)
@@ -1017,7 +1267,9 @@ def generate_character_voice(character_tag, text):
     if not text.strip():
         return None
 
-    voice_data = CHARACTER_VOICES.get(character_tag, {"type": "neutral", "voice": "Rachel"})
+    voice_data = CHARACTER_VOICES.get(
+    character_tag, {
+        "type": "neutral", "voice": "Rachel"})
     voice_type = voice_data["type"]
     prefix = f"{character_tag}_{voice_type}"
 
@@ -1046,7 +1298,8 @@ def generate_character_voice(character_tag, text):
             if r.status_code == 200:
                 with open(out_file, "wb") as f:
                     f.write(r.content)
-                log.info(f"🎙️ ElevenLabs {voice_type} voice generated for {character_tag}")
+                log.info(
+    f"🎙️ ElevenLabs {voice_type} voice generated for {character_tag}")
                 return str(out_file)
         except Exception as e:
             log.warning("ElevenLabs voice failed: %s", e)
@@ -1061,7 +1314,8 @@ def generate_character_voice(character_tag, text):
             )
             with open(out_file, "wb") as f:
                 f.write(response.audio)
-            log.info(f"🧩 OpenAI TTS generated for {character_tag} ({voice_type})")
+            log.info(
+    f"🧩 OpenAI TTS generated for {character_tag} ({voice_type})")
             return str(out_file)
         except Exception as e:
             log.warning("OpenAI TTS failed: %s", e)
@@ -1076,8 +1330,9 @@ def generate_character_voice(character_tag, text):
         log.warning("gTTS fallback failed: %s", e)
     return None
 
-# -------------------- Auto Character Voice Detection System --------------------
-import re
+
+# -------------------- Auto Character Voice Detection System -------------
+
 
 def detect_characters_from_script(script_text: str) -> list:
     """
@@ -1103,7 +1358,8 @@ def detect_characters_from_script(script_text: str) -> list:
 
         # Assign voice if not already
         if name not in assigned:
-            if any(x in name.lower() for x in ["riya", "anita", "sita", "she", "her"]):
+            if any(x in name.lower()
+                   for x in ["riya", "anita", "sita", "she", "her"]):
                 assigned[name] = "female"
             elif any(x in name.lower() for x in ["kid", "child", "boy", "girl"]):
                 assigned[name] = "child"
@@ -1135,8 +1391,8 @@ def process_script_auto(script_text: str):
             voice_files.append(voice_path)
     return voice_files
 
-# -------------------- Auto Avatar Fetcher + Character Visual Scene Builder --------------------
-import urllib.parse
+
+# -------------------- Auto Avatar Fetcher + Character Visual Scene Builde
 
 UNSPLASH_API_KEY = os.getenv("UNSPLASH_API_KEY", "")
 UNSPLASH_FALLBACKS = {
@@ -1145,6 +1401,7 @@ UNSPLASH_FALLBACKS = {
     "child": "https://images.unsplash.com/photo-1503457574463-6b2bca43b5cb",
     "old": "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e"
 }
+
 
 def fetch_avatar_for_character(name: str, voice_type: str) -> str:
     """
@@ -1185,27 +1442,21 @@ def build_cinematic_scenes(script_text: str):
         if voice_path:
             voice_files.append(voice_path)
 
-        log.info(f"🎭 Scene built for {name} ({voice_type}) → voice: {voice_path}, avatar: {avatar_url}")
+        log.info(
+    f"🎭 Scene built for {name} ({voice_type}) → voice: {voice_path}, avatar: {avatar_url}")
 
     return image_urls, voice_files
 
+
 # ---------------- Emotion-Based Cinematic Tone Enhancement ----------------
-import textblob
-from moviepy.editor import (
-    vfx,
-    ImageClip,
-    concatenate_videoclips,
-    AudioFileClip
-)
-from pathlib import Path
-import uuid
-import logging as log
 
 # Make sure the output folder exists
 OUTPUT_FOLDER = Path("outputs")
 OUTPUT_FOLDER.mkdir(exist_ok=True)
 
 # 💡 Detect Emotion from Script Text
+
+
 def analyze_emotion_from_text(text: str) -> str:
     """
     Detect emotion (happy, sad, angry, excited, neutral) from text using TextBlob.
@@ -1228,6 +1479,8 @@ def analyze_emotion_from_text(text: str) -> str:
         return "neutral"
 
 # 🎨 Apply Emotion-Based Visual Filter
+
+
 def apply_emotion_filter(clip, emotion: str):
     """
     Apply color tone, zoom, and brightness based on detected emotion.
@@ -1249,6 +1502,8 @@ def apply_emotion_filter(clip, emotion: str):
         return clip
 
 # 🎬 Build Full Emotion-Cinematic Video
+
+
 def build_emotion_cinematic_video(script_text: str) -> str:
     """
     Combine emotion detection + avatar + voice to build cinematic video.
@@ -1285,7 +1540,8 @@ def build_emotion_cinematic_video(script_text: str) -> str:
 
         if clips:
             final_video = concatenate_videoclips(clips, method="compose")
-            output_path = OUTPUT_FOLDER / f"emotion_story_{uuid.uuid4().hex[:8]}.mp4"
+            output_path = OUTPUT_FOLDER / \
+                f"emotion_story_{uuid.uuid4().hex[:8]}.mp4"
             final_video.write_videofile(str(output_path), fps=24)
             return str(output_path)
         else:
@@ -1296,47 +1552,46 @@ def build_emotion_cinematic_video(script_text: str) -> str:
         log.error(f"❌ Error in build_emotion_cinematic_video: {e}")
         return None
 
+
 # =========================
 # UNIVERSAL CHARACTER VISUAL ENGINE (UCVE)
 # =========================
-import os
-import uuid
-import tempfile
-import shutil
-import subprocess
-from typing import List, Tuple
 
 # --- Character models (avatar clips or placeholder images)
 # Replace avatar paths with your cloud URLs or uploads as needed.
 CHARACTER_MODELS = {
-    "man":     {"avatar":"assets/avatars/man_loop.mp4",     "voice":"male"},
-    "woman":   {"avatar":"assets/avatars/woman_loop.mp4",   "voice":"female"},
-    "child":   {"avatar":"assets/avatars/child_loop.mp4",   "voice":"child"},
-    "old_man": {"avatar":"assets/avatars/oldman_loop.mp4",  "voice":"old"},
-    "god":     {"avatar":"assets/avatars/god_loop.mp4",     "voice":"divine"},
-    "tiger":   {"avatar":"assets/avatars/tiger_loop.mp4",   "voice":"tiger"},
-    "monkey":  {"avatar":"assets/avatars/monkey_loop.mp4",  "voice":"monkey"},
-    "lion":    {"avatar":"assets/avatars/lion_loop.mp4",    "voice":"lion"},
-    "elephant":{"avatar":"assets/avatars/elephant_loop.mp4","voice":"elephant"},
-    "fox":     {"avatar":"assets/avatars/fox_loop.mp4",     "voice":"fox"},
-    "robot":   {"avatar":"assets/avatars/robot_loop.mp4",   "voice":"robot"},
-    "alien":   {"avatar":"assets/avatars/alien_loop.mp4",   "voice":"alien"},
-    "narrator":{"avatar":"assets/avatars/narrator_loop.mp4","voice":"male"},
+    "man": {"avatar": "assets/avatars/man_loop.mp4", "voice": "male"},
+    "woman": {"avatar": "assets/avatars/woman_loop.mp4", "voice": "female"},
+    "child": {"avatar": "assets/avatars/child_loop.mp4", "voice": "child"},
+    "old_man": {"avatar": "assets/avatars/oldman_loop.mp4", "voice": "old"},
+    "god": {"avatar": "assets/avatars/god_loop.mp4", "voice": "divine"},
+    "tiger": {"avatar": "assets/avatars/tiger_loop.mp4", "voice": "tiger"},
+    "monkey": {"avatar": "assets/avatars/monkey_loop.mp4", "voice": "monkey"},
+    "lion": {"avatar": "assets/avatars/lion_loop.mp4", "voice": "lion"},
+    "elephant": {"avatar": "assets/avatars/elephant_loop.mp4", "voice": "elephant"},
+    "fox": {"avatar": "assets/avatars/fox_loop.mp4", "voice": "fox"},
+    "robot": {"avatar": "assets/avatars/robot_loop.mp4", "voice": "robot"},
+    "alien": {"avatar": "assets/avatars/alien_loop.mp4", "voice": "alien"},
+    "narrator": {"avatar": "assets/avatars/narrator_loop.mp4", "voice": "male"},
 }
 
 # ============================================
 # 🤖 AUTO CHARACTER SCENE GENERATOR (ACSG)
 # ============================================
 
-import re
-import random
 
 def auto_detect_character(line: str) -> str:
     """
     Automatically detect speaker character type based on the text content.
     """
     line = line.lower()
-    if any(word in line for word in ["roar", "hunt", "jungle", "sher", "tiger"]):
+    if any(
+    word in line for word in [
+        "roar",
+        "hunt",
+        "jungle",
+        "sher",
+         "tiger"]):
         return "tiger"
     elif any(word in line for word in ["bandar", "monkey", "tree", "jump"]):
         return "monkey"
@@ -1392,13 +1647,20 @@ def generate_auto_scene_script(script_text: str):
 # 🌈 THEME-BASED CINEMATIC BACKGROUND SYSTEM
 # ============================================
 
+
 def detect_story_theme(script_text: str) -> str:
     """
     Detects the main theme of the story automatically.
     e.g. jungle, space, temple, war, city, etc.
     """
     text = script_text.lower()
-    if any(word in text for word in ["jungle", "forest", "animal", "sher", "bandar"]):
+    if any(
+    word in text for word in [
+        "jungle",
+        "forest",
+        "animal",
+        "sher",
+         "bandar"]):
         return "jungle"
     elif any(word in text for word in ["space", "planet", "alien", "mars", "galaxy"]):
         return "space"
@@ -1462,9 +1724,11 @@ def add_theme_based_background(script_text: str, audio_path: str) -> str:
     print(f"🌍 Theme detected: {theme} | 🎬 Using background: {bg_video}")
 
     # Merge audio and background
-    os.system(f"ffmpeg -y -i {bg_video} -i {audio_path} -c:v libx264 -c:a aac -shortest {final_theme_video}")
+    os.system(
+    f"ffmpeg -y -i {bg_video} -i {audio_path} -c:v libx264 -c:a aac -shortest {final_theme_video}")
 
     return final_theme_video
+
 
 def build_auto_scene(script_text: str):
     """
@@ -1478,10 +1742,14 @@ def build_auto_scene(script_text: str):
         for character, text in dialogues:
             print(f"🎙 Generating voice for {character}: '{text[:40]}...'")
             voice_id = CHARACTER_MODELS.get(character, {}).get("voice", "male")
-            avatar = CHARACTER_MODELS.get(character, {}).get("avatar", "assets/avatars/default_loop.mp4")
+            avatar = CHARACTER_MODELS.get(character, {}).get(
+                "avatar", "assets/avatars/default_loop.mp4")
 
             audio_path = f"/tmp/{character}_auto.mp3"
-            audio = generate(text=text, voice=voice_id, model="eleven_turbo_v2")
+            audio = generate(
+    text=text,
+    voice=voice_id,
+     model="eleven_turbo_v2")
             save(audio, audio_path)
             audio_segments.append(audio_path)
 
@@ -1501,7 +1769,8 @@ def build_auto_scene(script_text: str):
         bg_choice = random.choice(bg_list)
 
         final_video = f"/tmp/final_auto_scene_{uuid.uuid4().hex}.mp4"
-        os.system(f"ffmpeg -y -i {bg_choice} -i {combined_audio} -c:v libx264 -c:a aac -shortest {final_video}")
+        os.system(
+    f"ffmpeg -y -i {bg_choice} -i {combined_audio} -c:v libx264 -c:a aac -shortest {final_video}")
 
         print(f"✅ Auto cinematic scene created: {final_video}")
         return final_video
@@ -1510,12 +1779,14 @@ def build_auto_scene(script_text: str):
         print(f"❌ Auto scene build failed: {e}")
         return None
 
+
 # fallback avatar (if not present)
 FALLBACK_AVATAR = "assets/avatars/default_loop.mp4"
 
 # ---------- Helper: character detection from script ----------
-import re
-def detect_char_dialogues(script_text: str) -> List[Tuple[str,str]]:
+
+
+def detect_char_dialogues(script_text: str) -> List[Tuple[str, str]]:
     """
     Parse script lines into list of (character, text).
     Accepts formats like:
@@ -1535,15 +1806,16 @@ def detect_char_dialogues(script_text: str) -> List[Tuple[str,str]]:
         result.append((name, text))
     return result
 
+
 def map_to_known_character(name: str) -> str:
     s = name.lower().strip()
-    if any(x in s for x in ["man","boy","male","sir"]): return "man"
-    if any(x in s for x in ["woman","female","girl","lady"]): return "woman"
-    if any(x in s for x in ["child","kid","boy","girl"]): return "child"
-    if any(x in s for x in ["old","grand","baba","dada","nana"]): return "old_man"
+    if any(x in s for x in ["man", "boy", "male", "sir"]): return "man"
+    if any(x in s for x in ["woman", "female", "girl", "lady"]): return "woman"
+    if any(x in s for x in ["child", "kid", "boy", "girl"]): return "child"
+    if any(x in s for x in ["old", "grand", "baba", "dada", "nana"]): return "old_man"
     if "god" in s or "lord" in s or "deva" in s: return "god"
     # animals explicit names
-    for k in ("tiger","monkey","lion","elephant","fox"):
+    for k in ("tiger", "monkey", "lion", "elephant", "fox"):
         if k in s: return k
     # robot/alien/narrator fallback
     if "robot" in s: return "robot"
@@ -1552,9 +1824,12 @@ def map_to_known_character(name: str) -> str:
     # default fallback
     return "man"
 
-# ---------- Helper: generate voice for a character (ElevenLabs if available else gTTS) ----------
+
+# ---------- Helper: generate voice for a character (ElevenLabs if availab
 GTTS_AVAILABLE = 'gTTS' in globals()
-ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY") or os.getenv("ELEVENLABS_API_KEY") or os.getenv("ELEVEN_LABS_KEY")
+ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY") or os.getenv(
+    "ELEVENLABS_API_KEY") or os.getenv("ELEVEN_LABS_KEY")
+
 
 def generate_character_voice_fallback(character_label: str, text: str) -> str:
     """
@@ -1563,27 +1838,42 @@ def generate_character_voice_fallback(character_label: str, text: str) -> str:
     else use gTTS fallback.
     """
     uid = uuid.uuid4().hex
-    out_mp3 = str(Path(app.config.get("TMP_FOLDER", "tmp"))/ f"{character_label}_{uid}.mp3")
+    out_mp3 = str(
+    Path(
+        app.config.get(
+            "TMP_FOLDER",
+            "tmp")) /
+             f"{character_label}_{uid}.mp3")
     # Attempt ElevenLabs (simple HTTP) - if not configured, fallback to gTTS
     try:
         if ELEVEN_API_KEY:
             import requests
             voice_map = {
-                "male":"21m00Tcm4TlvDq8ikWAM",
-                "female":"EXAVITQu4vr4xnSDxMaL",
-                "child":"TxGEqnHWrfWFTfGW9XjX",
-                "old":"ErXwobaYiN019PkySvjV",
-                "divine":"ErXwobaYiN019PkySvjV"
+                "male": "21m00Tcm4TlvDq8ikWAM",
+                "female": "EXAVITQu4vr4xnSDxMaL",
+                "child": "TxGEqnHWrfWFTfGW9XjX",
+                "old": "ErXwobaYiN019PkySvjV",
+                "divine": "ErXwobaYiN019PkySvjV"
             }
-            voice_id = voice_map.get(map_to_known_character(character_label), "21m00Tcm4TlvDq8ikWAM")
+            voice_id = voice_map.get(
+    map_to_known_character(character_label),
+     "21m00Tcm4TlvDq8ikWAM")
             payload = {"text": text}
-            headers = {"xi-api-key": ELEVEN_API_KEY, "Content-Type":"application/json"}
-            # ElevenLabs TTS endpoint template — may require adjustment per your account
+            headers = {
+    "xi-api-key": ELEVEN_API_KEY,
+     "Content-Type": "application/json"}
+            # ElevenLabs TTS endpoint template — may require adjustment per
+            # your account
             url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-            r = requests.post(url, json=payload, headers=headers, stream=True, timeout=30)
+            r = requests.post(
+    url,
+    json=payload,
+    headers=headers,
+    stream=True,
+     timeout=30)
             if r.status_code == 200:
                 with open(out_mp3, "wb") as fh:
-                    for chunk in r.iter_content(1024*32):
+                    for chunk in r.iter_content(1024 * 32):
                         fh.write(chunk)
                 return out_mp3
             # if fails, fallthrough to gTTS
@@ -1593,7 +1883,11 @@ def generate_character_voice_fallback(character_label: str, text: str) -> str:
     # gTTS fallback
     try:
         from gtts import gTTS
-        tts = gTTS(text, lang="hi" if re.search(r'[\u0900-\u097F]', text) else "en")
+        tts = gTTS(
+    text,
+    lang="hi" if re.search(
+        r'[\u0900-\u097F]',
+         text) else "en")
         Path(os.path.dirname(out_mp3)).mkdir(parents=True, exist_ok=True)
         tts.save(out_mp3)
         return out_mp3
@@ -1601,14 +1895,19 @@ def generate_character_voice_fallback(character_label: str, text: str) -> str:
         log.exception("TTS fallback failed: %s", e)
         raise RuntimeError("TTS generation failed")
 
-# ---------- Helper: create lip-synced clip by simply attaching audio to avatar loop ----------
-def create_lip_sync_clip(avatar_path: str, audio_path: str, duration: float = None) -> str:
+# ---------- Helper: create lip-synced clip by simply attaching audio to a
+
+
+def create_lip_sync_clip(
+    avatar_path: str,
+    audio_path: str,
+     duration: float = None) -> str:
     """
     avatar_path: local path or url to an avatar loop video (prefer mp4)
     audio_path: local path to audio
     returns path to output mp4
     """
-    tmpdir = Path(app.config.get("TMP_FOLDER","tmp"))
+    tmpdir = Path(app.config.get("TMP_FOLDER", "tmp"))
     tmpdir.mkdir(parents=True, exist_ok=True)
     out = tmpdir / f"lipsync_{uuid.uuid4().hex}.mp4"
     avatar = avatar_path or FALLBACK_AVATAR
@@ -1646,7 +1945,11 @@ def create_lip_sync_clip(avatar_path: str, audio_path: str, duration: float = No
     cmd_concat = f"ffmpeg -y -i {avatar} -i {audio_path} -shortest -c:v libx264 -c:a aac {out}"
     try:
         # try straightforward attach (works even if durations mismatch)
-        subprocess.check_call(cmd_concat, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.check_call(
+    cmd_concat,
+    shell=True,
+    stdout=subprocess.DEVNULL,
+     stderr=subprocess.DEVNULL)
         return str(out)
     except subprocess.CalledProcessError:
         # final fallback: use moviepy concatenation
@@ -1673,12 +1976,15 @@ def create_lip_sync_clip(avatar_path: str, audio_path: str, duration: float = No
             raise
 
 # ---------- Compose scene: sequential clips (one clip per dialogue) ----------
-def compose_visual_scene_from_dialogues(dialogues: List[Tuple[str,str]]) -> str:
+
+
+def compose_visual_scene_from_dialogues(
+    dialogues: List[Tuple[str, str]]) -> str:
     """
     For each (character, text) create voice + lip-synced avatar clip, then concat sequentially.
     Returns local mp4 path.
     """
-    tmpdir = Path(app.config.get("TMP_FOLDER","tmp"))
+    tmpdir = Path(app.config.get("TMP_FOLDER", "tmp"))
     tmpdir.mkdir(parents=True, exist_ok=True)
     clip_paths = []
     for name, text in dialogues:
@@ -1708,7 +2014,8 @@ def compose_visual_scene_from_dialogues(dialogues: List[Tuple[str,str]]) -> str:
         with open(tmpdir / "inputs.txt", "w") as fh:
             for p in clip_paths:
                 fh.write(f"file '{p}'\n")
-        cmd = f"ffmpeg -y -f concat -safe 0 -i {tmpdir/'inputs.txt'} -c copy {final_out}"
+        cmd = f"ffmpeg -y -f concat -safe 0 -i {
+    tmpdir / 'inputs.txt'} -c copy {final_out}"
         subprocess.check_call(cmd, shell=True)
         return str(final_out)
     except Exception:
@@ -1726,6 +2033,8 @@ def compose_visual_scene_from_dialogues(dialogues: List[Tuple[str,str]]) -> str:
             return None
 
 # ---------- Public entry: Universal Character Visual Engine ----------
+
+
 def generate_universal_scene(script_text: str) -> str:
     """
     Main entry: takes script_text, auto-detects characters,
@@ -1735,7 +2044,8 @@ def generate_universal_scene(script_text: str) -> str:
     try:
         dialogues = detect_char_dialogues(script_text)
         # Map names to known characters
-        dialogues_mapped = [(map_to_known_character(n), t) for n, t in dialogues]
+        dialogues_mapped = [(map_to_known_character(n), t)
+                             for n, t in dialogues]
         scene = compose_visual_scene_from_dialogues(dialogues_mapped)
 
         if not scene:
