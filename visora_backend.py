@@ -3140,16 +3140,19 @@ def selfcheck():
 # ===============================================================
 # 🚦 Flask Limiter (Rate Limit Protection - UCVE v22)
 # ===============================================================
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
 
-# ✅ Correct initialization for Flask-Limiter v3.x
-limiter = Limiter(
-    key_func=get_remote_address,
-    app=None,  # attach later
-    default_limits=["100 per minute"]
-)
-limiter.init_app(app)
+    limiter = Limiter(
+        key_func=get_remote_address,
+        app=None,  # attach later
+        default_limits=["100 per minute"]
+    )
+    limiter.init_app(app)
+    print("✅ Flask-Limiter initialized successfully.")
+except Exception as e:
+    print(f"⚠️ Flask-Limiter initialization skipped: {e}")
 
 # ------------------------------
 # 🧩 App Runner
