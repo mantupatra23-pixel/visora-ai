@@ -728,14 +728,17 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 
 def assistant_generate_local(prompt: str, tone: str = "helpful"):
+    """
+    Local fallback assistant when OpenAI key is not available.
+    Generates basic funny or motivational hooks without external API.
+    """
     # Simple local heuristic fallback when OpenAI key missing
     if tone == "funny":
-        return f"😂 Funny start idea: \"Guess what... {prompt[:80]}\""
-    if tone == "motivational":
-        return f"🔥 Motivational hook: Start with 'Never give up...' then mention {
-    prompt[
-        :80]}"
-    return f"Try a punchy hook: '{prompt[:60]}...' and close with a one-line CTA."
+        return f"😂 Funny start idea: 'Guess what... {prompt[:80]}'"
+    elif tone == "motivational":
+        return f"🔥 Motivational hook: Start with 'Never give up.' — then add {prompt[:80]}"
+    else:
+        return f"💡 Try a punchy hook: '{prompt[:60]}' and close strong!"
 
 
 @app.route("/assistant", methods=["POST"])
@@ -744,68 +747,28 @@ def assistant_api():
     prompt = data.get("query", "")
     tone = data.get("tone", "helpful")
     lang = data.get("lang", "en")
-    # If OPENAI_KEY exists, call OpenAI
+
+    # If OPENAI_KEY exists, call OpenAI API
     if OPENAI_KEY:
         try:
-            import requests
-            headers = {
-    "Authorization": f"Bearer {OPENAI_KEY}",
-     "Content-Type": "application/json"}
-            body = {
-                "model": OPENAI_MODEL,
-                "input": f"Tone: {tone}\nPrompt: {prompt}"
-            }
-            # Using Chat Completions or Responses endpoint depends on OpenAI
-            # setup
-            resp = requests.post(
-    "https://api.openai.com/v1/responses",
-    headers=headers,
-    json=body,
-     timeout=30)
-            if resp.status_code == 200:
-                j = resp.json()
-                # try to extract reply text
-                text = ""
-                if "output" in j and isinstance(j["output"], list):
-                    pieces = [
-    p.get(
-        "content",
-        "") if isinstance(
-            p,
-             dict) else str(p) for p in j["output"]]
-                    text = " ".join(pieces)
-                elif "choices" in j and j["choices"]:
-                    text = j["choices"][0].get(
-    "message", {}).get(
-        "content", "")
-                else:
-                    text = str(j)
-                # optionally gTTS audio
-                audio_url = None
-                if GTTS_AVAILABLE:
-                    try:
-                        uid = uuid.uuid4().hex
-                        out = UPLOAD_DIR / "assistant_audio" / \
-                            f"assistant_{uid}.mp3"
-                        out.parent.mkdir(parents=True, exist_ok=True)
-                        # choose language param (basic)
-                        gTTS(text, lang=lang).save(str(out))
-                        audio_url = str(out)
-                    except Exception:
-                        audio_url = None
-                return jsonify({"reply": text, "audio": audio_url})
-            else:
-                log.warning("OpenAI error %s %s", resp.status_code, resp.text)
-                # fallback
-                return jsonify(
-                    {"reply": assistant_generate_local(prompt, tone)}), 200
+            import openai
+            openai.api_key = OPENAI_KEY
+            response = openai.ChatCompletion.create(
+                model=OPENAI_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": f"Tone: {tone}. Query: {prompt}"}
+                ]
+            )
+            text = response["choices"][0]["message"]["content"]
+            return jsonify({"response": text})
         except Exception as e:
-            log.exception("OpenAI call failed")
-            return jsonify({"reply": assistant_generate_local(
-                prompt, tone), "error": str(e)}), 200
+            log.exception("OpenAI API failed: %s", e)
+            return jsonify({"error": "OpenAI API failed", "details": str(e)})
     else:
-        # local fallback
-        return jsonify({"reply": assistant_generate_local(prompt, tone)}), 200
+        # Local fallback response (no API key)
+        result = assistant_generate_local(prompt, tone)
+        return jsonify({"response": result})
 
 # -------------------- Templates & Admin endpoints --------------------
 
