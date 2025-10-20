@@ -1742,33 +1742,29 @@ def generate_universal_scene(script_text: str) -> str:
             return None
 
         # 🎬 Optional postprocessing (use if functions defined)
-        try:
-            # derive mood from full script if analyze_emotion available
-            mood = None
-            if 'analyze_emotion' in globals():
-                mood = analyze_emotion(script_text)
-            else:
-                mood = "neutral"
+      try:
+    # derive mood from full script if analyze_emotion available
+    mood = None
+    if "analyze_emotion" in globals():
+        mood = analyze_emotion(script_text)
+    else:
+        mood = "neutral"
 
-            if "apply_dynamic_camera_effects" in globals():
-                scene = apply_dynamic_camera_effects(scene, mood)
+    if "apply_dynamic_camera_effects" in globals():
+        scene = apply_dynamic_camera_effects(scene, mood)
 
-            if "add_ambient_soundscape" in globals():
-                amb = "jungle" if "tiger" in script_text.lower() else "forest"
-                scene = add_ambient_soundscape(scene, amb)
+    if "add_ambient_soundscape" in globals():
+        amb = "jungle" if "tiger" in script_text.lower() else "neutral"
+        scene = add_ambient_soundscape(scene, amb)
 
-            if "apply_cinematic_lighting" in globals():
-                scene = apply_cinematic_lighting(scene, mood)
+    if "apply_cinematic_lighting" in globals():
+        scene = apply_cinematic_lighting(scene, mood)
 
-            return scene
+    return scene
 
-        except Exception as e:
-            log.exception("postprocessing failed: %s", e)
-            return None
-
-    except Exception as e:
-        log.exception("UCVE generation failed: %s", e)
-        return None
+except Exception as e:
+    log.exception("UCVE postprocessing failed: %s", e)
+    return None
 
 # -------------------- Cinematic Background Music AI System --------------------
 import random
