@@ -3407,46 +3407,49 @@ def upload_facebook(video_path, title, description, token):
     return f"Uploaded to Facebook ({os.path.basename(video_path)})"
 
 # =====================================================
-# 🧠 UCVE v29 - Pure Flask Stable Mode (Render Safe)
+# ☁️ UCVE v30 - CloudSafe Mode (100% Render Compatible)
 # =====================================================
-
 from flask import Flask, request, jsonify
-import os, json, datetime, uuid
+import os, datetime, uuid
 
 app = Flask(__name__)
 
 # -----------------------------------------------------
-# ✅ Basic Health Check (Render Test Route)
+# 🧠 Health Route
 # -----------------------------------------------------
 @app.route("/", methods=["GET"])
-def home():
+def health():
     return jsonify({
-        "status": "✅ Running - UCVE v29 Render Safe",
-        "uptime": str(datetime.datetime.now()),
-        "version": "v29"
+        "status": "✅ Visora-AI CloudSafe Backend Running",
+        "version": "UCVE v30",
+        "timestamp": str(datetime.datetime.now())
     }), 200
 
+
 # -----------------------------------------------------
-# 🎬 Example Render Endpoint (Simulated Video Job)
+# 🎥 Simulated Video Render Endpoint
 # -----------------------------------------------------
 @app.route("/render", methods=["POST"])
-def render_video():
+def render_job():
     try:
         data = request.get_json(force=True)
         job_id = str(uuid.uuid4())
-        print(f"🎞️ Render started for job: {job_id}")
+        print(f"🎞️ Render started for job {job_id}")
 
-        # fake render response
         return jsonify({
             "job_id": job_id,
             "status": "completed",
-            "message": "Simulated video rendered successfully (UCVE v29)"
+            "message": "Video render simulation success"
         }), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # -----------------------------------------------------
-# 🚀 App Runner (Render Safe)
+# 🚀 Main (Render Safe Entry Point)
 # -----------------------------------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    # Use waitress (safer than gunicorn for free cloud)
+    from waitress import serve
+    port = int(os.environ.get("PORT", 5000))
+    print(f"✅ Running UCVE v30 CloudSafe Mode on port {port}")
+    serve(app, host="0.0.0.0", port=port)

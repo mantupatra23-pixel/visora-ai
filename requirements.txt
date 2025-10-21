@@ -1,30 +1,29 @@
-# ===============================================================
-# 🚀 VISORA AI — UCVE v22 (Backend Cloud Build)
+# =====================================================
+# 🚀 VISORA AI – UCVE v30 (CloudSafe Backend Build)
 # Author: Aimantuvya & GPT-5
-# Description: Universal Cinematic Video Engine (Backend)
-# ===============================================================
+# Description: Universal Cinematic Video Engine (Render Safe)
+# =====================================================
 
-# 🧩 Core Framework
+# 🌿 Core Framework
 Flask==3.0.3
-gunicorn==21.2.0
 Werkzeug==3.0.3
 itsdangerous==2.2.0
 click==8.1.7
-flask-limiter==3.7.0  # ⚙️ Added Flask Limiter for API rate limit middleware
+waitress==3.0.0
 
 # 🧠 Database + ORM
 SQLAlchemy==2.0.25
 Flask-SQLAlchemy==3.1.1
 firebase-admin==6.5.0
 
-# 🧬 AI + Voice Processing
+# 🎙️ AI + Voice Processing
 openai==1.12.0
 gTTS==2.5.1
 textblob==0.17.1
 SpeechRecognition==3.10.1
 pydub==0.25.1
 typing_extensions==4.12.2
-stripe==9.10.0  # ✅ Added Stripe (for payment API)
+stripe==9.10.0
 
 # 🎬 Video + Audio Rendering
 moviepy==1.0.3
@@ -45,7 +44,7 @@ boto3==1.34.19
 google-cloud-storage==2.16.0
 requests==2.32.3
 
-# 🧰 Utility + Logging + Time
+# 🧩 Utility + Logging + Time
 python-dotenv==1.0.1
 uuid==1.30
 datetime==5.5
@@ -56,20 +55,21 @@ tqdm==4.66.5
 PyJWT==2.8.0
 cryptography==43.0.1
 
-# 👨‍💻 Developer Tools (safe to keep)
+# 🧑‍💻 Developer Tools (safe to keep)
 autopep8==2.3.2
 reindent==3.5.1
 
-# 🧩 Compatibility & Fix
+# 🧬 Compatibility & Fix
 setuptools==75.2.0
 packaging==24.1
 open3d==0.17.0
+
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.3.1+cpu
 torchvision==0.18.1+cpu
 torchaudio==2.3.1+cpu
 prometheus-client==0.20.0
 
-# ===============================================================
-# ✅ END OF REQUIREMENTS
-# ===============================================================
+# =====================================================
+# ✅ END OF REQUIREMENTS (Render Safe | UCVE v30)
+# =====================================================
