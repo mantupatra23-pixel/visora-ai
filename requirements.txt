@@ -10,6 +10,7 @@ Werkzeug==3.0.3
 itsdangerous==2.2.0
 click==8.1.7
 waitress==3.0.0
+flask-limiter==3.7.0
 
 # 🧠 Database + ORM
 SQLAlchemy==2.0.25
