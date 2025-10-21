@@ -23,17 +23,29 @@ BASE_DIR = os.getcwd()
 RENDER_PATH = os.path.join(BASE_DIR, "renders")
 os.makedirs(RENDER_PATH, exist_ok=True)
 
-# ======================================================
-# 🚦 Flask-Limiter (Safe Import + UCVE v24 Final Fix)
-# ======================================================
+# =====================================================
+# 🚦 Flask-Limiter (UCVE v26 Stable - Render + Termux)
+# =====================================================
 try:
     from flask_limiter import Limiter
     from flask_limiter.util import get_remote_address
-    limiter = Limiter(get_remote_address, default_limits=["100 per minute"])
-    print("✅ Flask-Limiter initialized successfully")
+
+    def get_ip():
+        try:
+            return get_remote_address()
+        except Exception:
+            return "127.0.0.1"
+
+    limiter = Limiter(
+        key_func=get_ip,
+        default_limits=["100 per minute"],
+        storage_uri="memory://"
+    )
+
+    print("✅ Flask-Limiter initialized successfully [UCVE v26]")
 except Exception as e:
     limiter = None
-    print(f"⚠️ Flask-Limiter disabled: {e}")
+    print(f"⚠️ Flask-Limiter disabled (Safe Mode): {e}")
 
 # ------------------------------
 # 🧠 AI Assistant (Placeholder)
