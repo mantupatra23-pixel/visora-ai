@@ -9,7 +9,6 @@ Description:
   - Firebase + S3 + SQLite hybrid sync system
   - Render + GitHub + Termux compatible
 """
-
 from flask import Flask, request, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -20,9 +19,12 @@ from typing import Optional
 # Initialize Flask app
 app = Flask(__name__)
 
-# ✅ Final Render-Compatible Flask-Limiter Setup (v3.x Safe)
-limiter = Limiter(key_func=get_remote_address)
-limiter.init_app(app)
+# ✅ Final Flask-Limiter v3.7+ Render-Compatible Setup
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["100 per minute"]
+)
 
 # 🔐 Configuration
 BASE_DIR = os.getcwd()
