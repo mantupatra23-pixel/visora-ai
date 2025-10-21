@@ -11,10 +11,13 @@ Description:
 """
 
 from flask import Flask, request, jsonify
-from moviepy.editor import VideoFileClip, AudioFileClip
-from time import time
+import os, uuid, datetime, json, logging as log
+from moviepy.editor import VideoFileClip, AudioFileClip, CompositeVideoClip, TextClip, vfx
 from typing import Optional
-import os, json, uuid, datetime, logging as log
+from time import time
+import random
+import numpy as np
+import librosa
 
 app = Flask(__name__)
 
@@ -3412,6 +3415,125 @@ def upload_to_platforms(video_path, title, description, thumb, upload_options, u
         print(f"⚠️ Upload failed: {e}")
         return {"status": "error", "message": str(e)}
 
+# ===========================
+# UCVE REALMODE ENGINE v3
+# Lip-sync + Expression Motion (add at end of visora_backend.py)
+# ===========================
+
+import librosa
+import numpy as np
+from moviepy.editor import VideoFileClip, AudioFileClip, CompositeVideoClip, TextClip, vfx
+from typing import Optional
+
+def analyze_voice_for_lipsync(voice_path: str):
+    """
+    Return timestamps (seconds) where voice RMS energy peaks occur.
+    Used to estimate mouth movement frames.
+    """
+    try:
+        y, sr = librosa.load(voice_path, sr=None)
+        # RMS (root-mean-square) energy
+        rms = librosa.feature.rms(y=y)[0]
+        # threshold = 75th percentile energy
+        thresh = np.percentile(rms, 75)
+        peaks = np.where(rms > thresh)[0]
+        timestamps = librosa.frames_to_time(peaks, sr=sr)
+        return timestamps.tolist()
+    except Exception as e:
+        # Return empty list on error
+        return []
+
+def generate_emotion_tone(voice_path: Optional[str]) -> str:
+    """
+    Lightweight placeholder: determine simple 'emotion' based on average volume.
+    (This is a simple heuristic, not a neural emotion model.)
+    """
+    try:
+        if not voice_path or not os.path.exists(voice_path):
+            return "neutral"
+        y, sr = librosa.load(voice_path, sr=None)
+        avg_energy = float(np.mean(librosa.feature.rms(y=y)[0]))
+        if avg_energy > 0.06:
+            return "angry"
+        if avg_energy > 0.03:
+            return "happy"
+        return "calm"
+    except Exception:
+        return "neutral"
+
+def apply_realmode_v3(video_path: str, voice_path: Optional[str] = None):
+    """
+    Apply basic color enhancement + lip-sync overlay + emotion overlay.
+    Returns dict with status & output path or error.
+    """
+    try:
+        emotion = generate_emotion_tone(voice_path) if voice_path else "neutral"
+        clip = VideoFileClip(video_path)
+
+        # simple color/contrast enhancement
+        try:
+            clip = clip.fx(vfx.colorx, 1.12).fx(vfx.lum_contrast, lum=6, contrast=12)
+        except Exception:
+            pass
+
+        # lip-sync timestamps (simple)
+        mouth_motion = analyze_voice_for_lipsync(voice_path) if voice_path else []
+
+        # small overlay labels (for debugging / visualization)
+        mouth_label = TextClip(
+            f"LipFrames: {len(mouth_motion)}", fontsize=22, color='yellow', bg_color='black'
+        ).set_duration(clip.duration).set_position(("center", "bottom"))
+
+        emotion_label = TextClip(
+            f"Emotion: {emotion}", fontsize=22, color='white', bg_color='black'
+        ).set_duration(clip.duration).set_position(("center", "top"))
+
+        final = CompositeVideoClip([clip, mouth_label, emotion_label])
+
+        # attach voice track if provided
+        if voice_path and os.path.exists(voice_path):
+            audio = AudioFileClip(voice_path)
+            # if audio longer than clip, cut; else set_audio directly
+            if audio.duration > final.duration:
+                audio = audio.subclip(0, final.duration)
+            final = final.set_audio(audio)
+
+        # output file
+        out_name = f"realmode_v3_{uuid.uuid4().hex[:8]}.mp4"
+        output_path = os.path.join(RENDER_PATH, out_name)
+        # write (use small preset for speed)
+        final.write_videofile(output_path, codec="libx264", audio_codec="aac", threads=0, preset="fast")
+
+        # close resources
+        final.close()
+        clip.close()
+        if 'audio' in locals():
+            audio.close()
+
+        return {"status": "success", "emotion": emotion, "mouth_frames": len(mouth_motion), "output": output_path}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+# Route to use the RealMode v3 engine
+@app.route("/realmode_v3", methods=["POST"])
+def realmode_v3():
+    try:
+        if 'video' not in request.files:
+            return jsonify({"error": "Video file missing"}), 400
+        video = request.files['video']
+        video_path = os.path.join(RENDER_PATH, f"input_v3_{uuid.uuid4().hex[:6]}.mp4")
+        video.save(video_path)
+
+        voice_path = None
+        if 'voice' in request.files:
+            voice = request.files['voice']
+            voice_path = os.path.join(RENDER_PATH, f"voice_v3_{uuid.uuid4().hex[:6]}.mp3")
+            voice.save(voice_path)
+
+        result = apply_realmode_v3(video_path, voice_path)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
 
 # ===========================
 # 📡 Individual Upload APIs
