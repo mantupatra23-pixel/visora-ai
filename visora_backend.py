@@ -10,19 +10,17 @@ Description:
   - Render + GitHub + Termux compatible
 """
 
-# ✅ Visora Backend v4.1 - Clean Render Safe Build
+# ✅ Visora Backend v4.2 - CloudSafe Render Compatible
 from flask import Flask, request, jsonify
 import os, json, uuid, datetime, logging as log
 from moviepy.editor import VideoFileClip, AudioFileClip
 from typing import Optional
 from time import time
 
-# Initialize Flask app
 app = Flask(__name__)
 
-# ✅ Custom lightweight rate limiter (no dependency)
+# ✅ Custom lightweight rate limiter
 user_requests = {}
-
 def rate_limit(user_ip, limit=100, period=60):
     now = time()
     if user_ip not in user_requests:
@@ -37,7 +35,7 @@ def rate_limit(user_ip, limit=100, period=60):
 def limit_requests():
     ip = request.remote_addr
     if not rate_limit(ip):
-        return jsonify({"error": "Too many requests, slow down!"}), 429
+        return jsonify({"error": "Too many requests, please wait!"}), 429
 
 # 🔐 Configuration
 BASE_DIR = os.getcwd()
