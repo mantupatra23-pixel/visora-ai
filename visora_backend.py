@@ -44,15 +44,6 @@ BASE_DIR = os.getcwd()
 RENDER_PATH = os.path.join(BASE_DIR, "renders")
 os.makedirs(RENDER_PATH, exist_ok=True)
 
-# ✅ Health Route
-@app.route("/", methods=["GET"])
-def health():
-    return jsonify({
-        "status": "✅ Visora-AI CloudSafe Backend Running",
-        "version": "UCVE v41",
-        "timestamp": str(datetime.datetime.now())
-    }), 200
-
 # ------------------------------
 # 🧠 AI Assistant (Placeholder)
 # ------------------------------
