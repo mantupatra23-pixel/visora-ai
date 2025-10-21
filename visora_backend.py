@@ -24,25 +24,23 @@ RENDER_PATH = os.path.join(BASE_DIR, "renders")
 os.makedirs(RENDER_PATH, exist_ok=True)
 
 # =====================================================
-# 🚦 Flask-Limiter (UCVE v26 Stable - Render + Termux)
+# 🚦 Flask-Limiter (UCVE v27 Render Safe Mode Final)
 # =====================================================
 try:
     from flask_limiter import Limiter
     from flask_limiter.util import get_remote_address
 
-    def get_ip():
-        try:
-            return get_remote_address()
-        except Exception:
-            return "127.0.0.1"
+    def rate_key_func():
+        return get_remote_address()
 
     limiter = Limiter(
-        key_func=get_ip,
+        key_func=rate_key_func,
         default_limits=["100 per minute"],
-        storage_uri="memory://"
+        app=None
     )
 
-    print("✅ Flask-Limiter initialized successfully [UCVE v26]")
+    print("✅ Flask-Limiter initialized successfully [UCVE v27 Render Safe Mode]")
+
 except Exception as e:
     limiter = None
     print(f"⚠️ Flask-Limiter disabled (Safe Mode): {e}")
