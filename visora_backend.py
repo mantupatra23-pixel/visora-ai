@@ -24,23 +24,21 @@ RENDER_PATH = os.path.join(BASE_DIR, "renders")
 os.makedirs(RENDER_PATH, exist_ok=True)
 
 # ===============================================================
-# 🧩 Flask Limiter (Safe Import + Initialization - UCVE v22b Render Fix)
+# 🧱 Flask Limiter (Safe Import + Init - UCVE v22 Final Fix)
 # ===============================================================
 try:
     from flask_limiter import Limiter
     from flask_limiter.util import get_remote_address
 
     limiter = Limiter(
-        get_remote_address,  # 👈 Direct positional argument (no key_func)
-        app=app,             # 👈 Add app here instead of init_app()
+        key_func=get_remote_address,
         default_limits=["100 per minute"]
     )
-
-    print("✅ Flask-Limiter initialized successfully (UCVE v22b Render Fix)")
+    print("✅ Flask-Limiter initialized successfully (UCVE v22 Final Fix)")
 
 except Exception as e:
     limiter = None
-    print(f"⚠️ Flask-Limiter disabled (reason: {e})")
+    print(f"⚠️ Flask-Limiter disabled due to: {e}")
 
 # ------------------------------
 # 🧠 AI Assistant (Placeholder)
