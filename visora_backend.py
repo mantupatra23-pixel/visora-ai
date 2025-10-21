@@ -11,12 +11,21 @@ Description:
 """
 
 from flask import Flask, request, jsonify
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import os, json, uuid, datetime, logging as log
-from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
+from moviepy.editor import VideoFileClip, AudioFileClip, CompositeVideoClip
 from typing import Optional
 
 # Initialize Flask app
 app = Flask(__name__)
+
+# Rate Limiter Setup
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["100 per minute"]
+)
 
 # 🔐 Configuration
 BASE_DIR = os.getcwd()
