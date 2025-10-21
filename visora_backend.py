@@ -9,34 +9,30 @@ Description:
   - Firebase + S3 + SQLite hybrid sync system
   - Render + GitHub + Termux compatible
 """
+
+# ✅ Visora Backend v4.1 - Clean Render Safe Build
 from flask import Flask, request, jsonify
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 import os, json, uuid, datetime, logging as log
 from moviepy.editor import VideoFileClip, AudioFileClip
 from typing import Optional
-
-# ✅ Custom Rate Limiter (Render Compatible)
 from time import time
-from flask import Flask, request, jsonify
 
+# Initialize Flask app
 app = Flask(__name__)
 
-# In-memory rate limiter
+# ✅ Custom lightweight rate limiter (no dependency)
 user_requests = {}
 
 def rate_limit(user_ip, limit=100, period=60):
     now = time()
     if user_ip not in user_requests:
         user_requests[user_ip] = []
-    requests = [t for t in user_requests[user_ip] if now - t < period]
-    user_requests[user_ip] = requests
-    if len(requests) >= limit:
+    user_requests[user_ip] = [t for t in user_requests[user_ip] if now - t < period]
+    if len(user_requests[user_ip]) >= limit:
         return False
     user_requests[user_ip].append(now)
     return True
 
-# Global limiter check
 @app.before_request
 def limit_requests():
     ip = request.remote_addr
@@ -47,6 +43,15 @@ def limit_requests():
 BASE_DIR = os.getcwd()
 RENDER_PATH = os.path.join(BASE_DIR, "renders")
 os.makedirs(RENDER_PATH, exist_ok=True)
+
+# ✅ Health Route
+@app.route("/", methods=["GET"])
+def health():
+    return jsonify({
+        "status": "✅ Visora-AI CloudSafe Backend Running",
+        "version": "UCVE v41",
+        "timestamp": str(datetime.datetime.now())
+    }), 200
 
 # ------------------------------
 # 🧠 AI Assistant (Placeholder)
