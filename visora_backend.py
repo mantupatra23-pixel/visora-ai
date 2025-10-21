@@ -10,34 +10,35 @@ Description:
   - Render + GitHub + Termux compatible
 """
 
-# ✅ Visora Backend v4.2 - CloudSafe Render Compatible
-from flask import Flask, request, jsonify
-import os, json, uuid, datetime, logging as log
-from moviepy.editor import VideoFileClip, AudioFileClip
-from typing import Optional
+# ✅ Custom lightweight rate limiter (Final Stable)
 from time import time
+from flask import Flask, request, jsonify
+import os
 
 app = Flask(__name__)
 
-# ✅ Custom lightweight rate limiter
+# 🧠 In-memory user rate tracking
 user_requests = {}
+
 def rate_limit(user_ip, limit=100, period=60):
+    """
+    Custom limiter: allows up to <limit> requests per <period> seconds per IP.
+    """
     now = time()
-    if user_ip not in user_requests:
-        user_requests[user_ip] = []
-    user_requests[user_ip] = [t for t in user_requests[user_ip] if now - t < period]
+    # Purane timestamps remove karo
+    user_requests[user_ip] = [t for t in user_requests.get(user_ip, []) if now - t < period]
     if len(user_requests[user_ip]) >= limit:
-        return False
+        return False  # limit exceeded
     user_requests[user_ip].append(now)
     return True
 
 @app.before_request
 def limit_requests():
-    ip = request.remote_addr
+    ip = request.remote_addr or "unknown"
     if not rate_limit(ip):
-        return jsonify({"error": "Too many requests, please wait!"}), 429
+        return jsonify({"error": "Too many requests, please slow down!"}), 429
 
-# 🔐 Configuration
+# 🧩 Base Configuration
 BASE_DIR = os.getcwd()
 RENDER_PATH = os.path.join(BASE_DIR, "renders")
 os.makedirs(RENDER_PATH, exist_ok=True)
