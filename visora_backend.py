@@ -2188,7 +2188,6 @@ def color_grade_endpoint():
 # - Redis + RQ background queue (preferred)
 # - Thread fallback queue (if Redis not available)
 # - Prometheus metrics endpoint
-# - Rate limiting via Flask-Limiter
 # - Graceful shutdown handling
 # ====================================================
 import atexit
@@ -2276,7 +2275,6 @@ def metrics():
 
 # --------- Rate limiting ----------
 # limit: 60 requests per minute per IP by default (tune as needed)
-limiter = Limiter(
     app,
     key_func=get_remote_address,
     default_limits=["60 per minute"]
