@@ -10,10 +10,9 @@ Description:
   - Render + GitHub + Termux compatible
 """
 
-# ✅ Custom lightweight rate limiter (Final Stable)
-from time import time
 from flask import Flask, request, jsonify
 import os
+from time import time
 
 app = Flask(__name__)
 
@@ -27,16 +26,24 @@ def rate_limit(user_ip, limit=100, period=60):
     now = time()
     # Purane timestamps remove karo
     user_requests[user_ip] = [t for t in user_requests.get(user_ip, []) if now - t < period]
+
     if len(user_requests[user_ip]) >= limit:
         return False  # limit exceeded
     user_requests[user_ip].append(now)
     return True
+
 
 @app.before_request
 def limit_requests():
     ip = request.remote_addr or "unknown"
     if not rate_limit(ip):
         return jsonify({"error": "Too many requests, please slow down!"}), 429
+
+
+# 🧩 Base Configuration
+BASE_DIR = os.getcwd()
+RENDER_PATH = os.path.join(BASE_DIR, "renders")
+os.makedirs(RENDER_PATH, exist_ok=True)
 
 # 🧩 Base Configuration
 BASE_DIR = os.getcwd()
@@ -2274,14 +2281,15 @@ def metrics():
         log.exception("Failed to generate metrics")
         return jsonify({"error":"metrics failed","details":str(e)}), 500
 
-# --------- Rate limiting ----------
-# limit: 60 requests per minute per IP by default (tune as needed)
-    app,
+# ------------------ Rate Limiting ------------------
+# Default: 60 requests per minute per IP (tune if needed)
+limiter = Limiter(
+    app=app,
     key_func=get_remote_address,
     default_limits=["60 per minute"]
 )
 
-# allow overriding via env var
+# Allow overriding via environment variable
 custom_limit = os.getenv("API_RATE_LIMIT")
 if custom_limit:
     limiter.limit(custom_limit)
