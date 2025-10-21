@@ -24,18 +24,20 @@ RENDER_PATH = os.path.join(BASE_DIR, "renders")
 os.makedirs(RENDER_PATH, exist_ok=True)
 
 # ===============================================================
-# 🧩 Flask Limiter (Safe Import + Initialization - UCVE v22 Final)
+# 🧩 Flask Limiter (Safe Import + Initialization - UCVE v22b Render Fix)
 # ===============================================================
 try:
     from flask_limiter import Limiter
     from flask_limiter.util import get_remote_address
 
     limiter = Limiter(
-        key_func=get_remote_address,
+        get_remote_address,  # 👈 Direct positional argument (no key_func)
+        app=app,             # 👈 Add app here instead of init_app()
         default_limits=["100 per minute"]
     )
-    limiter.init_app(app)
-    print("✅ Flask-Limiter initialized successfully (UCVE v22 Final)")
+
+    print("✅ Flask-Limiter initialized successfully (UCVE v22b Render Fix)")
+
 except Exception as e:
     limiter = None
     print(f"⚠️ Flask-Limiter disabled (reason: {e})")
@@ -3151,6 +3153,193 @@ def selfcheck():
         "modules": status,
         "uptime": str(datetime.datetime.now())
     })
+
+# ===============================================================
+# 🎙️ VFE UCVE v23 - Voice Fusion Engine (AI Narration + Sync)
+# ===============================================================
+import io
+import base64
+from gtts import gTTS
+from moviepy.editor import VideoFileClip, AudioFileClip, CompositeVideoClip
+
+@app.route("/generate_voice_video", methods=["POST"])
+def generate_voice_video():
+    """
+    Generate video with AI narration (text-to-speech + auto sync)
+    """
+    try:
+        data = request.get_json(force=True)
+        script_text = data.get("script", "")
+        video_path = data.get("video_path", "")
+
+        if not script_text:
+            return jsonify({"status": "error", "message": "No script text provided."}), 400
+        if not video_path or not os.path.exists(video_path):
+            return jsonify({"status": "error", "message": "Video file not found."}), 400
+
+        # 🎤 Generate AI voice
+        tts = gTTS(text=script_text, lang="en", slow=False)
+        audio_file = os.path.join(RENDER_PATH, f"{uuid.uuid4()}.mp3")
+        tts.save(audio_file)
+
+        # 🎬 Merge voice + video
+        video_clip = VideoFileClip(video_path)
+        audio_clip = AudioFileClip(audio_file)
+        final_clip = video_clip.set_audio(audio_clip)
+
+        output_path = os.path.join(RENDER_PATH, f"vfe_{uuid.uuid4()}.mp4")
+        final_clip.write_videofile(output_path, codec="libx264", audio_codec="aac")
+
+        return jsonify({
+            "status": "success",
+            "message": "AI Voice Fusion video generated successfully.",
+            "output": output_path
+        })
+
+    except Exception as e:
+        log.exception("VFE UCVE v23 error")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# ===============================================================
+# 🖼️ SceneGen UCVE v24 - Scene & Background Generator (short/long)
+# ===============================================================
+import math
+import random
+import requests
+from PIL import Image, ImageDraw, ImageFont
+from moviepy.editor import ImageSequenceClip, AudioFileClip, VideoFileClip
+from typing import List
+
+IMAGE_API_KEY = os.getenv("IMAGE_API_KEY", None)  # optional (Replicate / SD)
+IMAGE_API_URL = os.getenv("IMAGE_API_URL", "")    # optional endpoint if using remote API
+# default frame rate and durations
+SHORT_DURATION = 8    # seconds for short video
+LONG_DURATION = 45    # seconds for long video
+FPS = 15
+
+def _prompt_from_script(script: str, n_scenes: int) -> List[str]:
+    """Simple scene prompt extractor — splits script into n_scenes chunks and returns short prompts."""
+    words = script.split()
+    if len(words) < 5:
+        return [script] * n_scenes
+    per = max(1, len(words)//n_scenes)
+    prompts = []
+    for i in range(n_scenes):
+        chunk = " ".join(words[i*per:(i+1)*per])
+        prompts.append(chunk.strip() or script[:50])
+    return prompts
+
+def _generate_image_via_api(prompt: str, out_path: str) -> bool:
+    """Optional: call external image generation API (Replicate / Stable Diffusion)."""
+    if not IMAGE_API_KEY or not IMAGE_API_URL:
+        return False
+    try:
+        payload = {"prompt": prompt, "width": 1024, "height": 576}
+        headers = {"Authorization": f"Bearer {IMAGE_API_KEY}"}
+        r = requests.post(IMAGE_API_URL, json=payload, headers=headers, timeout=120)
+        r.raise_for_status()
+        data = r.json()
+        # Expect base64 or url in data; adapt as your API returns
+        if "image_base64" in data:
+            b = base64.b64decode(data["image_base64"])
+            with open(out_path, "wb") as f:
+                f.write(b)
+            return True
+        elif "image_url" in data:
+            rr = requests.get(data["image_url"], timeout=60)
+            rr.raise_for_status()
+            with open(out_path, "wb") as f:
+                f.write(rr.content)
+            return True
+    except Exception as e:
+        log.warning("External image API failed: %s", e)
+    return False
+
+def _generate_fallback_image(prompt: str, out_path: str, size=(1280,720)):
+    """Fallback: make a simple stylized background with the prompt text."""
+    w,h = size
+    img = Image.new("RGB", size, (20+random.randint(0,60), 20+random.randint(0,60), 40+random.randint(0,60)))
+    draw = ImageDraw.Draw(img)
+    # basic gradient
+    for i in range(h):
+        r = int((i/h)*40) + 20
+        g = int((1 - i/h)*40) + 20
+        b = int(((i/h)*i/h)*60) + 20
+        draw.line([(0,i),(w,i)], fill=(r,g,b))
+    # draw prompt text in center (small)
+    try:
+        font = ImageFont.truetype("DejaVuSans.ttf", 26)
+    except:
+        font = ImageFont.load_default()
+    text = (prompt[:200] + "...") if len(prompt) > 200 else prompt
+    tw, th = draw.textsize(text, font=font)
+    draw.text(((w-tw)/2, (h-th)/2), text, fill=(255,255,255), font=font)
+    img.save(out_path)
+
+def _make_scene_images(prompts: List[str], tmpdir: str) -> List[str]:
+    """For each prompt, try API then fallback; return list of image paths."""
+    image_paths = []
+    for i,p in enumerate(prompts):
+        fname = os.path.join(tmpdir, f"scene_{i:03d}.png")
+        ok = _generate_image_via_api(p, fname)
+        if not ok:
+            _generate_fallback_image(p, fname, size=(1280,720))
+        image_paths.append(fname)
+    return image_paths
+
+def _frames_from_images(images: List[str], fps: int, duration: int) -> List[str]:
+    """Convert scene images into a sequence of frames (static holds with simple crossfade)"""
+    frames = []
+    per_scene = max(1, int(math.ceil((duration / max(1, len(images))) * fps)))
+    for idx,img in enumerate(images):
+        # simple duplicate frames for static hold (could implement gradual transition)
+        for k in range(per_scene):
+            frames.append(img)
+    return frames
+
+@app.route("/scenegen", methods=["POST"])
+def scenegen_endpoint():
+    """
+    POST JSON:
+    {
+      "script": "...",
+      "type": "short" | "long",   # optional; default short
+      "n_scenes": 4              # optional
+    }
+    """
+    try:
+        data = request.get_json(force=True) or {}
+        script = data.get("script", "").strip()
+        vtype = data.get("type", "short")
+        n_scenes = int(data.get("n_scenes", 4))
+
+        if not script:
+            return jsonify({"status": "error", "message": "No script provided."}), 400
+        # decide duration
+        duration = SHORT_DURATION if vtype == "short" else LONG_DURATION
+        # prepare prompts
+        prompts = _prompt_from_script(script, n_scenes)
+
+        # tmpdir
+        tmpdir = os.path.join(RENDER_PATH, f"scenegen_{uuid.uuid4()}")
+        os.makedirs(tmpdir, exist_ok=True)
+
+        # generate scene images
+        images = _make_scene_images(prompts, tmpdir)
+
+        # convert to frames (simple hold)
+        frames = _frames_from_images(images, FPS, duration)
+
+        # build video clip from frames
+        clip = ImageSequenceClip(frames, fps=FPS)
+        out_path = os.path.join(RENDER_PATH, f"scenegen_{uuid.uuid4()}.mp4")
+        clip.write_videofile(out_path, codec="libx264", audio=False)
+
+        return jsonify({"status": "success", "output": out_path, "tmpdir": tmpdir})
+
+    except Exception as e:
+        log.exception("SceneGen UCVE v24 failed")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # ------------------------------
 # 🧩 App Runner
