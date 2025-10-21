@@ -16,15 +16,32 @@ import os, json, uuid, datetime, logging as log
 from moviepy.editor import VideoFileClip, AudioFileClip
 from typing import Optional
 
-# Initialize Flask app
+# ✅ Custom Rate Limiter (Render Compatible)
+from time import time
+from flask import Flask, request, jsonify
+
 app = Flask(__name__)
 
-# ✅ Final Flask-Limiter v3.7+ Render-Compatible Setup
-limiter = Limiter(
-    get_remote_address,
-    app=app,
-    default_limits=["100 per minute"]
-)
+# In-memory rate limiter
+user_requests = {}
+
+def rate_limit(user_ip, limit=100, period=60):
+    now = time()
+    if user_ip not in user_requests:
+        user_requests[user_ip] = []
+    requests = [t for t in user_requests[user_ip] if now - t < period]
+    user_requests[user_ip] = requests
+    if len(requests) >= limit:
+        return False
+    user_requests[user_ip].append(now)
+    return True
+
+# Global limiter check
+@app.before_request
+def limit_requests():
+    ip = request.remote_addr
+    if not rate_limit(ip):
+        return jsonify({"error": "Too many requests, slow down!"}), 429
 
 # 🔐 Configuration
 BASE_DIR = os.getcwd()
