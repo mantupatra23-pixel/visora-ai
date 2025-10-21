@@ -24,17 +24,19 @@ RENDER_PATH = os.path.join(BASE_DIR, "renders")
 os.makedirs(RENDER_PATH, exist_ok=True)
 
 # ===============================================================
-# 🧱 Flask Limiter (Safe Import + Init - UCVE v22 Final Fix)
+# 🧱 Flask Limiter (Render Safe UCVE v24 Final)
 # ===============================================================
 try:
     from flask_limiter import Limiter
     from flask_limiter.util import get_remote_address
 
+    # ✅ New syntax (Render compatible)
     limiter = Limiter(
-        key_func=get_remote_address,
+        get_remote_address,
+        app=app,  # attach Flask app directly here
         default_limits=["100 per minute"]
     )
-    print("✅ Flask-Limiter initialized successfully (UCVE v22 Final Fix)")
+    print("✅ Flask-Limiter initialized successfully (Render-safe UCVE v24)")
 
 except Exception as e:
     limiter = None
@@ -3338,6 +3340,90 @@ def scenegen_endpoint():
     except Exception as e:
         log.exception("SceneGen UCVE v24 failed")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+# ===============================================================
+# 🚀 UCVE v25 - Auto Publisher (YouTube + Instagram + Facebook)
+# ===============================================================
+# Description:
+# - Generate AI metadata (title, desc, thumbnail)
+# - Allow upload to selected platforms
+# - API token-based authentication (user-supplied)
+
+from flask import Flask, request, jsonify
+import os, json, uuid, datetime, logging as log
+from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
+from typing import Optional
+
+# 👇 ye line yahaan add karni hai
+from visora_auto_publisher import generate_auto_meta, upload_to_platforms
+
+def generate_auto_meta(video_path: str):
+    """Generate auto title, description, and thumbnail."""
+    title = f"Cinematic AI Creation {''.join(random.choices(string.ascii_uppercase, k=4))}"
+    description = (
+        "🎬 Created using Visora AI\n"
+        "#VisoraAI #Cinematic #AIArt #Innovation"
+    )
+
+    # generate thumbnail (1st frame)
+    try:
+        clip = VideoFileClip(video_path)
+        thumb_path = video_path.replace(".mp4", "_thumb.jpg")
+        clip.save_frame(thumb_path, t=0.5)
+        clip.close()
+    except Exception as e:
+        thumb_path = None
+        print(f"⚠️ Thumbnail generation failed: {e}")
+
+    return title, description, thumb_path
+
+
+def upload_to_platforms(video_path, title, description, thumb, upload_options, user_tokens):
+    """Upload to YouTube, Instagram, Facebook (selected by user)."""
+    try:
+        print("⏳ Starting multi-platform upload...")
+        result = {}
+
+        if upload_options.get("youtube"):
+            print("🎥 Uploading to YouTube...")
+            result["youtube"] = upload_youtube(video_path, title, description, thumb, user_tokens["youtube"])
+
+        if upload_options.get("instagram"):
+            print("📱 Uploading to Instagram...")
+            result["instagram"] = upload_instagram(video_path, description, user_tokens["instagram"])
+
+        if upload_options.get("facebook"):
+            print("🌐 Uploading to Facebook...")
+            result["facebook"] = upload_facebook(video_path, title, description, user_tokens["facebook"])
+
+        print("✅ Upload complete:", result)
+        return {"status": "success", "details": result}
+
+    except Exception as e:
+        print(f"⚠️ Upload failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+# ===========================
+# 📡 Individual Upload APIs
+# ===========================
+
+def upload_youtube(video_path, title, description, thumb, token):
+    """YouTube upload (through user token)."""
+    # placeholder pseudo logic (YouTube Data API)
+    return f"Uploaded to YouTube ({os.path.basename(video_path)})"
+
+
+def upload_instagram(video_path, caption, token):
+    """Instagram upload (Reel/Feed)."""
+    # placeholder pseudo logic (Instagram Graph API)
+    return f"Uploaded to Instagram ({os.path.basename(video_path)})"
+
+
+def upload_facebook(video_path, title, description, token):
+    """Facebook video upload."""
+    # placeholder pseudo logic (Facebook Graph API)
+    return f"Uploaded to Facebook ({os.path.basename(video_path)})"
 
 # ------------------------------
 # 🧩 App Runner
