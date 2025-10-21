@@ -23,40 +23,6 @@ BASE_DIR = os.getcwd()
 RENDER_PATH = os.path.join(BASE_DIR, "renders")
 os.makedirs(RENDER_PATH, exist_ok=True)
 
-# =====================================================
-# 🧩 UCVE v28 - Custom Rate Controller (Render Safe Mode)
-# =====================================================
-from time import time
-from flask import request
-
-# simple in-memory rate limiter alternative
-RATE_LIMIT = 100  # requests
-TIME_WINDOW = 60  # seconds
-client_records = {}
-
-def rate_limiter():
-    """Basic rate limiter replacement for Render Safe Mode."""
-    now = time()
-    client_ip = request.remote_addr or "global"
-    record = client_records.get(client_ip, {"count": 0, "start": now})
-
-    if now - record["start"] > TIME_WINDOW:
-        record = {"count": 0, "start": now}
-
-    record["count"] += 1
-    client_records[client_ip] = record
-
-    if record["count"] > RATE_LIMIT:
-        return False
-    return True
-
-@app.before_request
-def check_rate():
-    if not rate_limiter():
-        return jsonify({"status": "error", "message": "Rate limit exceeded (UCVE v28 Safe Mode)"}), 429
-
-print("✅ UCVE v28 Custom Rate Controller active [Render Safe Mode]")
-
 # ------------------------------
 # 🧠 AI Assistant (Placeholder)
 # ------------------------------
@@ -3440,8 +3406,47 @@ def upload_facebook(video_path, title, description, token):
     # placeholder pseudo logic (Facebook Graph API)
     return f"Uploaded to Facebook ({os.path.basename(video_path)})"
 
-# ------------------------------
-# 🧩 App Runner
-# ------------------------------
+# =====================================================
+# 🧠 UCVE v29 - Pure Flask Stable Mode (Render Safe)
+# =====================================================
+
+from flask import Flask, request, jsonify
+import os, json, datetime, uuid
+
+app = Flask(__name__)
+
+# -----------------------------------------------------
+# ✅ Basic Health Check (Render Test Route)
+# -----------------------------------------------------
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({
+        "status": "✅ Running - UCVE v29 Render Safe",
+        "uptime": str(datetime.datetime.now()),
+        "version": "v29"
+    }), 200
+
+# -----------------------------------------------------
+# 🎬 Example Render Endpoint (Simulated Video Job)
+# -----------------------------------------------------
+@app.route("/render", methods=["POST"])
+def render_video():
+    try:
+        data = request.get_json(force=True)
+        job_id = str(uuid.uuid4())
+        print(f"🎞️ Render started for job: {job_id}")
+
+        # fake render response
+        return jsonify({
+            "job_id": job_id,
+            "status": "completed",
+            "message": "Simulated video rendered successfully (UCVE v29)"
+        }), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# -----------------------------------------------------
+# 🚀 App Runner (Render Safe)
+# -----------------------------------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
