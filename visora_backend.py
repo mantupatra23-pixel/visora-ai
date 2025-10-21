@@ -24,26 +24,38 @@ RENDER_PATH = os.path.join(BASE_DIR, "renders")
 os.makedirs(RENDER_PATH, exist_ok=True)
 
 # =====================================================
-# 🚦 Flask-Limiter (UCVE v27 Render Safe Mode Final)
+# 🧩 UCVE v28 - Custom Rate Controller (Render Safe Mode)
 # =====================================================
-try:
-    from flask_limiter import Limiter
-    from flask_limiter.util import get_remote_address
+from time import time
+from flask import request
 
-    def rate_key_func():
-        return get_remote_address()
+# simple in-memory rate limiter alternative
+RATE_LIMIT = 100  # requests
+TIME_WINDOW = 60  # seconds
+client_records = {}
 
-    limiter = Limiter(
-        key_func=rate_key_func,
-        default_limits=["100 per minute"],
-        app=None
-    )
+def rate_limiter():
+    """Basic rate limiter replacement for Render Safe Mode."""
+    now = time()
+    client_ip = request.remote_addr or "global"
+    record = client_records.get(client_ip, {"count": 0, "start": now})
 
-    print("✅ Flask-Limiter initialized successfully [UCVE v27 Render Safe Mode]")
+    if now - record["start"] > TIME_WINDOW:
+        record = {"count": 0, "start": now}
 
-except Exception as e:
-    limiter = None
-    print(f"⚠️ Flask-Limiter disabled (Safe Mode): {e}")
+    record["count"] += 1
+    client_records[client_ip] = record
+
+    if record["count"] > RATE_LIMIT:
+        return False
+    return True
+
+@app.before_request
+def check_rate():
+    if not rate_limiter():
+        return jsonify({"status": "error", "message": "Rate limit exceeded (UCVE v28 Safe Mode)"}), 429
+
+print("✅ UCVE v28 Custom Rate Controller active [Render Safe Mode]")
 
 # ------------------------------
 # 🧠 AI Assistant (Placeholder)
