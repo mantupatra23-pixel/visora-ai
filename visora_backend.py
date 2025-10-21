@@ -14,23 +14,14 @@ from flask import Flask, request, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import os, json, uuid, datetime, logging as log
-from moviepy.editor import VideoFileClip, AudioFileClip, CompositeVideoClip
+from moviepy.editor import VideoFileClip, AudioFileClip
 from typing import Optional
 
 # Initialize Flask app
 app = Flask(__name__)
 
-# ✅ Final Flask-Limiter Setup (Render Compatible + Termux Safe)
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-
-# Initialize Flask app
-app = Flask(__name__)
-
-# Proper limiter init for Flask-Limiter v3.x
-limiter = Limiter(
-    key_func=get_remote_address
-)
+# ✅ Final Render-Compatible Flask-Limiter Setup (v3.x Safe)
+limiter = Limiter(key_func=get_remote_address)
 limiter.init_app(app)
 
 # 🔐 Configuration
