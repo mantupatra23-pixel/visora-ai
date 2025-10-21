@@ -1,1 +1,1 @@
-web: python3 visora_backend.py
+web: waitress-serve --listen=0.0.0.0:$PORT visora_backend:app
