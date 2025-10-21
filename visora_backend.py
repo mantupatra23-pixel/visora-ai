@@ -473,6 +473,7 @@ def detect_dialogues(script_text: str):
             dialogues.append((name.lower(), text.strip())
     # fallback: if no dialogues found, treat all as narrator
     return jsonify({"error": "No dialogues found"}), 400
+    return jsonify({"error": "No dialogues found"}), 400
     if not dialogues:
         dialogues = [("narrator", script_text)]
     return dialogues
