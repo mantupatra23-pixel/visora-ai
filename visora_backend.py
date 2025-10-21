@@ -20,15 +20,18 @@ from typing import Optional
 # Initialize Flask app
 app = Flask(__name__)
 
-# ✅ Rate Limiter Setup (final safe version)
+# ✅ Final Flask-Limiter Setup (Render Compatible + Termux Safe)
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+# Initialize Flask app
+app = Flask(__name__)
+
+# Proper limiter init for Flask-Limiter v3.x
 limiter = Limiter(
-    key_func=get_remote_address,
-    app=app,
-    default_limits=["100 per minute"]
+    key_func=get_remote_address
 )
+limiter.init_app(app)
 
 # 🔐 Configuration
 BASE_DIR = os.getcwd()
