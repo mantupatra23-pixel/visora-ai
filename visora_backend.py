@@ -470,7 +470,7 @@ def detect_dialogues(script_text: str):
         m = re.match(r"^([A-Za-z]+):\s*(.+)$", line.strip())
         if m:
             name, text = m.groups()
-            dialogues.append((name.lower(), text.strip()))
+            dialogues.append((name.lower(), text.strip())
     # fallback: if no dialogues found, treat all as narrator
     if not dialogues:
         dialogues = [("narrator", script_text)]
@@ -1013,7 +1013,7 @@ def apply_camera_director(video_path: str, shot_plan: List[Dict]) -> str:
                 seg = seg.resize(lambda t: 1 + 0.005 * math.sin(0.6 * t))
             elif stype == "closeup":
                 # gentle zoom-in and slight speed ramp for drama
-                seg = seg.resize(lambda t: 1 + 0.015 * (t / max(1.0, dur)))
+                seg = seg.resize(lambda t: 1 + 0.015 * (t / max(1.0, dur))
                 seg = seg.fx(vfx.lum_contrast, 1.0 + 0.1 * intensity, 1.0, 128)
                 seg = seg.fx(vfx.speedx, 1.0 + 0.02 * intensity)
             elif stype == "action":
@@ -1024,7 +1024,7 @@ def apply_camera_director(video_path: str, shot_plan: List[Dict]) -> str:
                 seg = seg.fx(vfx.speedx, 1.0 + 0.12 * intensity)
             elif stype == "dramatic":
                 # slow dolly in + strong contrast
-                seg = seg.resize(lambda t: 1 + 0.02 * (t / max(1.0, dur)))
+                seg = seg.resize(lambda t: 1 + 0.02 * (t / max(1.0, dur))
                 seg = seg.fx(vfx.lum_contrast, 1.2, 1.1, 128)
             else:
                 seg = seg.fx(vfx.colorx, 1.0)
@@ -1654,7 +1654,7 @@ def create_motion_path_scene(bg_path: str, char_img_path: str, motion: str = "pa
     elif motion == "zoom-in":
         char_clip = char_clip.resize(lambda t: 1 + 0.05 * t)
     elif motion == "orbit":
-        char_clip = char_clip.set_position(lambda t: (640 + 80 * np.sin(t * 2), 360 + 50 * np.cos(t * 2)))
+        char_clip = char_clip.set_position(lambda t: (640 + 80 * np.sin(t * 2), 360 + 50 * np.cos(t * 2))
 
     final = CompositeVideoClip([bg_clip, char_clip])
     out_path = str(OUTPUT_FOLDER / f"scene3d_{uuid.uuid4().hex[:8]}.mp4")
@@ -2799,7 +2799,7 @@ def generate_lip_sync_video(photo_path, audio_path, output_path, emotion="neutra
     toggle = False
     while t < dur:
         part = base.resize(motion_scale if toggle else 1.0)
-        clips.append(part.set_duration(min(step, dur - t)))
+        clips.append(part.set_duration(min(step, dur - t))
         t += step
         toggle = not toggle
 
@@ -2876,7 +2876,7 @@ def pitch_shift_np(y: np.ndarray, sr: int, n_steps: float):
 def envelope_shape(y: np.ndarray, strength: float = 1.0):
     """Apply mild dynamic shaping — compress/expand via simple tanh curve."""
     # normalize
-    maxv = max(1e-9, np.max(np.abs(y)))
+    maxv = max(1e-9, np.max(np.abs(y))
     norm = y / maxv
     shaped = np.tanh(norm * (1.0 + 0.8 * strength))
     return (shaped * maxv).astype(y.dtype)
@@ -2925,7 +2925,7 @@ def morph_voice_emotion(audio_path: str, out_path: str, target_emotion: str = "n
 
     # simple limiter for angry (harder)
     if target_emotion == "angry":
-        shaped = np.clip(shaped, -0.9 * np.max(np.abs(shaped)), 0.9 * np.max(np.abs(shaped)))
+        shaped = np.clip(shaped, -0.9 * np.max(np.abs(shaped)), 0.9 * np.max(np.abs(shaped))
 
     # convert back to stereo if original was stereo
     if data.ndim == 2:
@@ -3269,7 +3269,7 @@ def _generate_image_via_api(prompt: str, out_path: str) -> bool:
 def _generate_fallback_image(prompt: str, out_path: str, size=(1280,720)):
     """Fallback: make a simple stylized background with the prompt text."""
     w,h = size
-    img = Image.new("RGB", size, (20+random.randint(0,60), 20+random.randint(0,60), 40+random.randint(0,60)))
+    img = Image.new("RGB", size, (20+random.randint(0,60), 20+random.randint(0,60), 40+random.randint(0,60))
     draw = ImageDraw.Draw(img)
     # basic gradient
     for i in range(h):
@@ -3301,7 +3301,7 @@ def _make_scene_images(prompts: List[str], tmpdir: str) -> List[str]:
 def _frames_from_images(images: List[str], fps: int, duration: int) -> List[str]:
     """Convert scene images into a sequence of frames (static holds with simple crossfade)"""
     frames = []
-    per_scene = max(1, int(math.ceil((duration / max(1, len(images))) * fps)))
+    per_scene = max(1, int(math.ceil((duration / max(1, len(images)) * fps))
     for idx,img in enumerate(images):
         # simple duplicate frames for static hold (could implement gradual transition)
         for k in range(per_scene):
