@@ -20,7 +20,10 @@ from typing import Optional
 # Initialize Flask app
 app = Flask(__name__)
 
-# Rate Limiter Setup
+# ✅ Rate Limiter Setup (final safe version)
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
