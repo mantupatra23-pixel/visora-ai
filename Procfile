@@ -1,1 +1,1 @@
-web: python visora_backend.py
+web: python3 visora_backend.py
