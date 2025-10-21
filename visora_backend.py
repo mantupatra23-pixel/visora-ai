@@ -2288,7 +2288,6 @@ def metrics():
 
 # ------------------ Rate Limiting ------------------
 # Default: 60 requests per minute per IP (tune if needed)
-limiter = Limiter(
     app=app,
     key_func=get_remote_address,
     default_limits=["60 per minute"]
