@@ -29,15 +29,11 @@ os.makedirs(RENDER_PATH, exist_ok=True)
 try:
     from flask_limiter import Limiter
     from flask_limiter.util import get_remote_address
-
-    limiter = Limiter(
-        key_func=get_remote_address,
-        default_limits=["100 per minute"]
-    )
-    print("✅ Flask-Limiter initialized successfully (UCVE v24 Final)")
+    limiter = Limiter(get_remote_address, default_limits=["100 per minute"])
+    print("✅ Flask-Limiter initialized successfully")
 except Exception as e:
     limiter = None
-    print(f"⚠️ Flask-Limiter disabled due to: {e}")
+    print(f"⚠️ Flask-Limiter disabled: {e}")
 
 # ------------------------------
 # 🧠 AI Assistant (Placeholder)
