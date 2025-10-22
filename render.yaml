@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: visora-ai
+    env: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    buildCommand: ""
+    startCommand: ""
+    envVars:
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: HUGGINGFACE_HUB_TOKEN
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: FIREBASE_CRED_PATH
+        sync: false
+      - key: FIREBASE_BUCKET
+        sync: false
+      - key: FIREBASE_DB_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: DOMAIN
+        value: https://visora-ai.onrender.com
+      - key: TTS_PROVIDER
+        value: elevenlabs
+      - key: RENDER_WATERMARK
+        value: Visora AI
