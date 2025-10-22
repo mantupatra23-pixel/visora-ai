@@ -132,17 +132,16 @@ def generate_video():
 
     try:
     pass
-    pass
         pass
-
+        pass
     except Exception as e:
     pass
         pass
+        print("❌ Auto-fix: Missing except added", e)
+        pass
 
-        # 🎬 Simulated render process (placeholder - actual render will replace)
-
+        # 🎥 Simulated render process (placeholder - actual render will replace)
         with open(out_file, "w") as f:
-
             f.write(f"Rendered {video_type} video for: {script_text}\n")
             f.write(f"Applied Config: {json.dumps(config, indent=2)}\n")
 
@@ -189,10 +188,10 @@ def health():
 def analyze_emotion(script_text: str) -> str:
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         sentiment = blob.sentiment.polarity
         if sentiment > 0.3:
@@ -257,10 +256,10 @@ def apply_cinematic_lighting(scene_path: str, mood: str) -> str:
 def generate_cinematic_scene(script_text: str) -> str:
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         base_scene = f"scene_base_{uuid.uuid4().hex[:8]}"
         log.info(f"🎭 Detected mood: {mood}")
@@ -293,10 +292,10 @@ def ucve_generate():
 
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         return jsonify({
             "status": "success",
@@ -320,63 +319,79 @@ ELEVEN_AVAILABLE = False
 GTTS_AVAILABLE = False
 PYDUB_AVAILABLE = False
 
-    try:
+try:
     pass
     pass
-        pass
+    pass
+    pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
     MOVIEPY_AVAILABLE = True
-    except Exception as e:
+except Exception as e:
+    pass
     pass
         pass
     log.info("moviepy not available: %s", e)
 
-    try:
+try:
     pass
     pass
-        pass
+    pass
+    pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
     from elevenlabs import generate as eleven_generate, save as eleven_save, set_api_key as eleven_set_api_key
     ELEVEN_AVAILABLE = True
 except Exception:
     pass
+    pass
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         ELEVEN_AVAILABLE = True  # we'll call REST if SDK not present
     except Exception:
     pass
         ELEVEN_AVAILABLE = False
 
-    try:
+try:
     pass
     pass
-        pass
+    pass
+    pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
     GTTS_AVAILABLE = True
 except Exception:
     pass
+    pass
     GTTS_AVAILABLE = False
 
-    try:
+try:
     pass
     pass
-        pass
+    pass
+    pass
     except Exception as e:
     pass
         pass
+        print("❌ Auto-fix: Missing except added", e)
+        pass
     PYDUB_AVAILABLE = True
 except Exception:
+    pass
     pass
     PYDUB_AVAILABLE = False
 
@@ -404,19 +419,19 @@ def synthesize_tts(
     # Try ElevenLabs if API key present
     ele_key = os.getenv("ELEVENLABS_API_KEY") or os.getenv("ELEVENLABS_KEY")
     if ele_key and ELEVEN_AVAILABLE:
-    try:
+        try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
         pass
-    try:
-    pass
-    pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
+            try:
+    pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
                     eleven_set_api_key(ele_key)
                     audio_bytes = eleven_generate(
@@ -446,29 +461,29 @@ def synthesize_tts(
                                 f.write(chunk)
                 log.info("TTS generated via ElevenLabs -> %s", filename)
                 return str(filename)
-    except Exception as e:
+            except Exception as e:
     pass
         pass
                 log.warning("ElevenLabs TTS failed: %s", e)
                 # fallthrough to gTTS
-    except Exception as e:
+        except Exception as e:
     pass
         pass
             log.warning("ElevenLabs generation error: %s", e)
 
     # gTTS fallback
     if GTTS_AVAILABLE:
-    try:
+        try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             tts.save(str(filename))
             log.info("TTS generated via gTTS -> %s", filename)
             return str(filename)
-    except Exception as e:
+        except Exception as e:
     pass
         pass
             log.exception("gTTS failed: %s", e)
@@ -499,10 +514,10 @@ def attach_audio_to_video(
 
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         aclip = AudioFileClip(audio_path)
 
@@ -521,6 +536,7 @@ def attach_audio_to_video(
                 aclip = AudioFileClip(str(tmp_loop))
             else:
                 # simple subclip (audio will stop before video ends)
+                pass
         elif aclip.duration > vclip.duration:
             aclip = aclip.subclip(0, vclip.duration)
 
@@ -536,17 +552,18 @@ def attach_audio_to_video(
         threads=2,
          logger=None)
         # close clips
-    try:
+        try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             vclip.close()
             aclip.close()
         except Exception:
     pass
+            pass
 
         log.info("Audio attached -> %s", out_path)
         return str(out_path)
@@ -581,10 +598,10 @@ def synthesize_and_attach():
 
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         if video_path == "ucve" or not video_path:
             # use UCVE generate; re-use generate_cinematic_scene if present
@@ -598,10 +615,10 @@ def synthesize_and_attach():
         tts_file = synthesize_tts(script, voice=voice)
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         return jsonify({
             "status": "success",
@@ -639,10 +656,10 @@ def auto_music_scene():
 
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         video = generate_cinematic_scene(script)
 
@@ -677,10 +694,10 @@ def init_firebase():
     global FIREBASE_BUCKET
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             cred = credentials.Certificate("visora-firebase-key.json")
             firebase_admin.initialize_app(cred, {
@@ -734,10 +751,10 @@ def cloud_upload():
 
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         return jsonify({"status": "success", "file_url": url})
     except Exception as e:
@@ -759,10 +776,10 @@ def auto_sync():
 
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         local_video = generate_cinematic_scene(script)
         # Step 2: Upload to Firebase
@@ -891,10 +908,10 @@ def virtual_actor():
 
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         url = upload_to_firebase(output)
         return jsonify({
@@ -989,12 +1006,12 @@ def apply_camera_director(video_path: str, shot_plan: List[Dict]) -> str:
         seg = base_clip.subclip(start_t, end_t)
 
         # apply effects by shot type
-    try:
+        try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
                 # mild color grade + slow zoom-out
                 seg = seg.fx(vfx.colorx, 1.02 + 0.01 * intensity)
@@ -1032,7 +1049,7 @@ def apply_camera_director(video_path: str, shot_plan: List[Dict]) -> str:
             # clamp clip duration to requested dur (some fx may alter length)
             seg=seg.set_duration(end_t - start_t)
 
-    except Exception as e:
+        except Exception as e:
     pass
         pass
             log.warning("Camera director effect failed on segment: %s", e)
@@ -1060,14 +1077,15 @@ def apply_camera_director(video_path: str, shot_plan: List[Dict]) -> str:
 
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         base_clip.close()
     except Exception:
     pass
+        pass
 
     log.info("🎬 Camera Director produced -> %s", out_path)
     return str(out_path)
@@ -1093,10 +1111,10 @@ def camera_direct_endpoint():
 
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         if not video_path or video_path == "ucve":
             if "generate_cinematic_scene" in globals():
@@ -1113,12 +1131,12 @@ def camera_direct_endpoint():
         # optionally upload to firebase if available
         cloud_url=None
         if FIREBASE_BUCKET:
-    try:
+            try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             except Exception:
     pass
@@ -1137,14 +1155,18 @@ def camera_direct_endpoint():
 # ====================================================
 from datetime import datetime
 
-    try:
+try:
     pass
     pass
-        pass
+    pass
+    pass
     except Exception as e:
     pass
         pass
+        print("❌ Auto-fix: Missing except added", e)
+        pass
 except Exception:
+    pass
     pass
     firebase_db=None
 
@@ -1152,10 +1174,10 @@ def init_realtime_db():
     """Ensure Firebase Realtime DB initialized."""
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             return None
         if not firebase_admin._apps:
@@ -1173,10 +1195,10 @@ def save_project_state(project_id: str, data: dict):
     """Push project JSON snapshot to Firebase DB."""
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             raise RuntimeError("Realtime DB not available")
         ref=firebase_db.reference(f"projects/{project_id}")
@@ -1194,10 +1216,10 @@ def load_project_state(project_id: str) -> dict:
         return {}
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         data=ref.get()
         return data or {}
@@ -1373,18 +1395,19 @@ def generate_ai_insights():
     categories=[]
     sentiments=[]
     for v in vids:
-    try:
+        try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             blob=textblob.TextBlob(txt)
             sentiments.append(blob.sentiment.polarity)
             categories.append(v.template or "General")
         except Exception:
     pass
+            pass
 
     avg_sent=statistics.mean(sentiments) if sentiments else 0.0
     trend=Counter(categories).most_common(3)
@@ -1434,10 +1457,10 @@ STRIPE_READY=False
 if STRIPE_SECRET_KEY:
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         STRIPE_READY=True
         log.info("Stripe configured.")
@@ -1448,19 +1471,23 @@ if STRIPE_SECRET_KEY:
 
 # --- Razorpay simple availability flag (use requests fallback if SDK not installed) ---
 RAZORPAY_READY=False
-    try:
+try:
     pass
     pass
-        pass
+    pass
+    pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
     if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
         razorpay_client=razorpay.Client(
             auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
         RAZORPAY_READY=True
         log.info("Razorpay configured.")
-    except Exception as e:
+except Exception as e:
+    pass
     pass
         pass
     log.info("Razorpay SDK not available: %s", e)
@@ -1489,10 +1516,10 @@ def stripe_create_checkout():
 
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             payment_method_types=["card"],
             mode="payment",
@@ -1525,26 +1552,26 @@ def stripe_webhook():
 
     # Verify webhook signature if secret provided
     if STRIPE_WEBHOOK_SECRET:
-    try:
+        try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
     payload, sig_header, STRIPE_WEBHOOK_SECRET)
-    except Exception as e:
+        except Exception as e:
     pass
         pass
             log.exception("Stripe webhook signature verification failed")
             return jsonify({"error": "invalid signature"}), 400
     else:
-    try:
+        try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         except Exception:
     pass
@@ -1571,12 +1598,12 @@ def stripe_webhook():
             "user_email") or metadata.get("email")
         amount=obj.get("amount_total") or obj.get("amount")  # cents
         # allocate credits or upgrade plan logic here
-    try:
+        try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
                 u=UserProfile.query.filter_by(email=user_email).first()
                 if u:
@@ -1613,10 +1640,10 @@ def razorpay_create_order():
 
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             {"amount": amount, "currency": currency, "receipt": receipt, "notes": notes})
         return jsonify({"order": order})
@@ -1633,10 +1660,10 @@ def razorpay_create_order():
     # verify signature
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             msg="{}|{}".format(order_id, payment_id)
             generated_signature=hmac.new(
@@ -1646,12 +1673,12 @@ def razorpay_create_order():
             if not hmac.compare_digest(generated_signature, signature):
                 return jsonify({"error": "invalid signature"}), 400
             # success -> allocate credits (example)
-    try:
+            try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
                     u=UserProfile.query.filter_by(email=user_email).first()
                     if u:
@@ -1875,10 +1902,10 @@ def apply_camera_path(
     # Apply crop with functions
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
                           x2=lambda t: x2_at(t), y2=lambda t: y2_at(t))
         out_path=OUTPUT_DIR /
@@ -1889,16 +1916,17 @@ def apply_camera_path(
     codec="libx264",
     audio_codec="aac",
      logger=None)
-    try:
+        try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             clip.close()
         except Exception:
     pass
+            pass
         return str(out_path)
     except Exception as e:
     pass
@@ -1925,10 +1953,10 @@ def camera_optimize_endpoint():
 
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         if video_path == "ucve" or not video_path:
             if "generate_cinematic_scene" in globals():
@@ -1947,12 +1975,12 @@ def camera_optimize_endpoint():
         final_file=apply_camera_path(base_video, keyframes)
         cloud_url=None
         if FIREBASE_BUCKET:
-    try:
+            try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             except Exception:
     pass
@@ -1987,10 +2015,10 @@ def load_midas_model():
         return _midas_model, _midas_transform
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         midas.eval()
         transform=torch.hub.load(
@@ -2095,22 +2123,22 @@ def ucve_depth_parallax():
 
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         video_path=apply_parallax_motion(
     _abs_path(img), depth_path, motion, duration)
 
         cloud_url=None
         if FIREBASE_BUCKET:
-    try:
+            try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             except Exception:
     pass
@@ -2255,14 +2283,15 @@ def color_grade_video(
      logger=None)
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         clip.close()
     except Exception:
     pass
+        pass
     return str(out_path)
 
 # Flask endpoint: grade by mood
@@ -2283,21 +2312,21 @@ def color_grade_endpoint():
 
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             video_path=generate_cinematic_scene(data.get("script", ""))
         out=color_grade_video(video_path, mood=mood)
         cloud_url=None
         if FIREBASE_BUCKET:
-    try:
+            try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             except Exception:
     pass
@@ -2327,12 +2356,15 @@ from prometheus_client import Counter, Gauge, generate_latest, CollectorRegistry
 # --------- Redis + RQ (optional) ----------
 REDIS_URL=os.getenv("REDIS_URL", None)
 USE_RQ=False
-    try:
+try:
     pass
     pass
-        pass
+    pass
+    pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         import redis
         from rq import Queue, Connection, Worker
@@ -2346,7 +2378,8 @@ USE_RQ=False
     else:
         USE_RQ=False
         log.info("REDIS_URL not set - RQ disabled, using thread fallback.")
-    except Exception as e:
+except Exception as e:
+    pass
     pass
         pass
     USE_RQ=False
@@ -2367,12 +2400,12 @@ def thread_worker_loop():
             if thread_queue:
                 job=thread_queue.pop(0)
         if job:
-    try:
+            try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
                 job_fn=job.get("fn")
                 job_args=job.get("args", ())
@@ -2381,7 +2414,7 @@ def thread_worker_loop():
                 render_jobs[job_id]["status"]="running"
                 job_fn(*job_args, **job_kwargs)
                 render_jobs[job_id]["status"]="done"
-    except Exception as e:
+            except Exception as e:
     pass
         pass
                 log.exception("Thread worker job failed: %s", e)
@@ -2424,10 +2457,10 @@ def metrics():
     # expose prometheus metrics (standard)
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         return (data, 200, {'Content-Type': CONTENT_TYPE_LATEST})
     except Exception as e:
@@ -2460,18 +2493,18 @@ def enqueue_render_job_internal(fn, *args, **kwargs):
     MET_JOB_SUBMITTED.inc()
 
     if USE_RQ:
-    try:
+        try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             rq_job=rq_queue.enqueue(fn, *args, **kwargs, job_id=job_id)
             render_jobs[job_id]["status"]="queued_rq"
             render_jobs[job_id]["rq_id"]=rq_job.get_id()
             log.info("Enqueued job %s to RQ %s", job_id, rq_job.get_id())
-    except Exception as e:
+        except Exception as e:
     pass
         pass
             log.exception("RQ enqueue failed, falling back to thread: %s", e)
@@ -2511,12 +2544,12 @@ def enqueue_render():
 
     # Choose the actual function to run (safe wrappers)
     def job_wrapper(video_id, script_text, flow_name):
-    try:
+        try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             v=UserVideo.query.get(video_id)
             if v:
@@ -2538,19 +2571,20 @@ def enqueue_render():
             MET_JOB_DONE.inc()
             render_jobs[video_id.hex if hasattr(video_id, 'hex') else video_id]={
                                                 "status": "done", "output_file": out}
-    except Exception as e:
+        except Exception as e:
     pass
         pass
             log.exception("Background job failed: %s", e)
-    try:
+            try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
         pass
+        print("❌ Auto-fix: Missing except added", e)
+        pass
                     v.status="failed"; db.session.commit()
             except:
+                pass
             MET_JOB_FAILED.inc()
 
     # Enqueue (pass DB id)
@@ -2583,10 +2617,10 @@ def readiness():
     reasons=[]
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         db.session.execute("SELECT 1")
     except Exception as e:
@@ -2596,14 +2630,14 @@ def readiness():
         reasons.append(f"db:{str(e)[:120]}")
 
     if USE_RQ:
-    try:
+        try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
         pass
-    except Exception as e:
+        print("❌ Auto-fix: Missing except added", e)
+        pass
+        except Exception as e:
     pass
         pass
             ok=False
@@ -2702,10 +2736,10 @@ def gallery_delete():
         return jsonify({"error": "not found"}), 404
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             abs_path=_abs_path(v.file_path)
             if os.path.exists(abs_path):
@@ -2803,17 +2837,18 @@ def admin_cleanup():
     removed=0
     for folder in [TMP_FOLDER, OUTPUT_FOLDER]:
         for f in Path(folder).glob("*"):
-    try:
+            try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
                     f.unlink()
                     removed += 1
             except Exception:
     pass
+                pass
     return jsonify({"status": "cleaned", "files_removed": removed})
 
 # ---------- 5️⃣ Thumbnail Generator ----------
@@ -2822,10 +2857,10 @@ def generate_video_thumbnail(video_path: str) -> str:
     thumb_path=str(OUTPUT_FOLDER / f"thumb_{uuid.uuid4().hex[:8]}.jpg")
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         ret, frame=cap.read()
         if ret:
@@ -2938,10 +2973,10 @@ def upload_character():
     # Save to DB (if enabled)
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             c=CharacterProfile(
     email=email,
@@ -2999,10 +3034,10 @@ def detect_emotion_from_audio(audio_path):
     """Analyze audio tone to detect emotion"""
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         energy=np.mean(np.abs(y))
         zcr=np.mean(librosa.feature.zero_crossing_rate(y))
@@ -3185,10 +3220,10 @@ def morph_voice_emotion(
     # pitch shift
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
     except Exception:
     pass
@@ -3230,10 +3265,10 @@ def fuse_scenes_timeline(
     fused=None
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             raise ValueError("No clips provided")
         # build progressive fusion
@@ -3297,15 +3332,16 @@ def fuse_scenes_timeline(
     # close clips
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         for c in clips:
             c.close()
     except Exception:
     pass
+        pass
     return str(out_name)
 
 # ---------------- Flask endpoints ----------------
@@ -3333,10 +3369,10 @@ def api_morph_emotion():
     outp=OUTPUT_FOLDER / f"morphed_{target}_{uuid.uuid4().hex[:8]}.wav"
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         return jsonify({"status": "ok", "morphed_audio": str(
             Path(morphed).relative_to(BASE_DIR))})
@@ -3363,20 +3399,20 @@ def api_scene_fuse():
     abs_scenes=[_abs_path(s) for s in scenes]
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         # optionally upload to firebase
         cloud=None
         if FIREBASE_BUCKET:
-    try:
+            try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             except Exception:
     pass
@@ -3480,25 +3516,25 @@ def selfcheck():
     status={}
 
     for m in modules:
-    try:
+        try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             status[m]="✅ Loaded"
-    except Exception as e:
+        except Exception as e:
     pass
         pass
             status[m]=f"❌ Missing ({str(e)})"
 
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         device="cuda" if torch.cuda.is_available() else "cpu"
         status["torch_device"]=f"🧠 Torch running on {device}"
@@ -3527,10 +3563,10 @@ def generate_voice_video():
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         script_text=data.get("script", "")
         video_path=data.get("video_path", "")
@@ -3606,10 +3642,10 @@ def _generate_image_via_api(prompt: str, out_path: str) -> bool:
         return False
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         headers={"Authorization": f"Bearer {IMAGE_API_KEY}"}
         r=requests.post(
@@ -3651,10 +3687,10 @@ def _generate_fallback_image(prompt: str, out_path: str, size=(1280, 720)):
     # draw prompt text in center (small)
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
     except:
         font=ImageFont.load_default()
@@ -3701,10 +3737,10 @@ def scenegen_endpoint():
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         script=data.get("script", "").strip()
         vtype=data.get("type", "short")
@@ -3773,10 +3809,10 @@ def generate_auto_meta(video_path: str):
     # generate thumbnail (1st frame)
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         thumb_path=video_path.replace(".mp4", "_thumb.jpg")
         clip.save_frame(thumb_path, t=0.5)
@@ -3800,10 +3836,10 @@ def upload_to_platforms(
     """Upload to YouTube, Instagram, Facebook (selected by user)."""
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         result={}
 
@@ -3848,10 +3884,10 @@ def analyze_voice_for_lipsync(voice_path: str):
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         # RMS (root-mean-square) energy
         rms=librosa.feature.rms(y=y)[0]
@@ -3873,10 +3909,10 @@ def generate_emotion_tone(voice_path: Optional[str]) -> str:
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             return "neutral"
         y, sr=librosa.load(voice_path, sr=None)
@@ -3897,20 +3933,20 @@ def apply_realmode_v3(video_path: str, voice_path: Optional[str]=None):
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         clip=VideoFileClip(video_path)
 
         # simple color/contrast enhancement
-    try:
+        try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
     vfx.colorx,
     1.12).fx(
@@ -3919,6 +3955,7 @@ def apply_realmode_v3(video_path: str, voice_path: Optional[str]=None):
          contrast=12)
         except Exception:
     pass
+            pass
 
         # lip-sync timestamps (simple)
         mouth_motion=analyze_voice_for_lipsync(
@@ -3975,10 +4012,10 @@ def apply_realmode_v3(video_path: str, voice_path: Optional[str]=None):
 def realmode_v3():
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             return jsonify({"error": "Video file missing"}), 400
         video=request.files['video']
@@ -4048,10 +4085,10 @@ def health():
 def render_job():
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         job_id=str(uuid.uuid4())
         print(f"🎞️ Render started for job {job_id}")
@@ -4076,26 +4113,34 @@ from flask import request, jsonify, send_file
 # from gpu_dispatcher import add_job, get_status as gpu_get_status
 
 # If your project placed these files elsewhere, adjust imports accordingly
-    try:
+try:
     pass
     pass
-        pass
+    pass
+    pass
     except Exception as e:
     pass
         pass
+        print("❌ Auto-fix: Missing except added", e)
+        pass
 except Exception:
+    pass
     pass
     def generate_story(topic, duration="short", style="cinematic"):
         return f"(local-fallback) A short story about {topic}."
 
-    try:
+try:
     pass
     pass
-        pass
+    pass
+    pass
     except Exception as e:
     pass
         pass
+        print("❌ Auto-fix: Missing except added", e)
+        pass
 except Exception:
+    pass
     pass
     def generate_and_save_tts(text, lang="en"):
         # fallback: create a small dummy file path or raise for missing
@@ -4106,14 +4151,18 @@ except Exception:
         open(dummy, "wb").close()
         return dummy
 
-    try:
+try:
     pass
     pass
-        pass
+    pass
+    pass
     except Exception as e:
     pass
         pass
+        print("❌ Auto-fix: Missing except added", e)
+        pass
 except Exception:
+    pass
     pass
     # fallback queue (very small)
     _local_queue={}
@@ -4181,10 +4230,10 @@ def create_video():
     # 2) generate TTS (sync) - returns saved audio path
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
     except Exception as e:
     pass
@@ -4232,10 +4281,10 @@ def stage3_status(job_id):
     q={}
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
     except Exception:
     pass
@@ -4278,10 +4327,10 @@ def stage3_preview_demo(job_id):
     # else try to generate quick demo using moviepy if available
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
     except Exception as e:
     pass
@@ -4294,12 +4343,12 @@ def stage3_preview_demo(job_id):
     tts=meta.get("tts")
     duration=6
     if tts and os.path.exists(tts):
-    try:
+        try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             # cut or extend to duration
             a=audio.subclip(0, min(audio.duration, duration))
@@ -4337,7 +4386,7 @@ def stage3_preview_demo(job_id):
      preset="fast")
                 clip.close(); audio.close()
                 return send_file(outp, as_attachment=False)
-    except Exception as e:
+        except Exception as e:
     pass
         pass
             return jsonify(
@@ -4363,10 +4412,10 @@ def create_video():
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         topic=data.get("topic", "Untitled Story")
         style=data.get("style", "cinematic")
@@ -4419,10 +4468,10 @@ def preview_video():
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         tts=data.get("tts_path")
         duration=float(data.get("duration", 6))
@@ -4474,10 +4523,10 @@ def upload_to_cloud():
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         video_path=data.get("video_path")
 
@@ -4527,10 +4576,10 @@ def generate_tts_audio(script_text: str):
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         dialogues = parse_dialogues(script_text)
         if not dialogues:
@@ -4562,10 +4611,10 @@ def generate_tts_audio(script_text: str):
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         dialogues = parse_dialogues(script_text)
 
@@ -4599,10 +4648,10 @@ def generate_3d_background(theme: str = "sunset"):
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         import open3d as o3d
         import cv2
@@ -4642,10 +4691,10 @@ def initialize_render_job():
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         job_data = {
             "status": "initialized",
@@ -4670,10 +4719,10 @@ def apply_lighting_and_depth():
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         import cv2
         import os
@@ -4716,10 +4765,10 @@ def initialize_render_job():
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         job_data = {
             "status": "initialized",
@@ -4744,10 +4793,10 @@ def finalize_output_path(out_path: str):
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             raise ValueError("Output path is empty.")
         log.info(f"✅ Background render completed: {out_path}")
@@ -4766,10 +4815,10 @@ def setup_language_target():
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         log.info(f"🌐 Language target initialized: {lang_target}")
         return lang_target
@@ -4786,10 +4835,10 @@ def finalize_output_path(out_path: str):
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             raise ValueError("Output path missing")
         log.info(f"✅ Background render completed: {out_path}")
@@ -4808,10 +4857,10 @@ def setup_language_target():
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         log.info(f"🌐 Language target initialized: {lang_target}")
         return lang_target
@@ -4828,10 +4877,10 @@ def finalize_output_path(out_path: str):
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             raise ValueError("Output path missing")
         log.info(f"✅ Background render completed: {out_path}")
@@ -4850,10 +4899,10 @@ def setup_language_target():
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
         log.info(f"🌐 Language target initialized: {lang_target}")
         return lang_target
@@ -4870,10 +4919,10 @@ def finalize_output_path(out_path: str):
     """
     try:
     pass
-    pass
-        pass
     except Exception as e:
     pass
+        pass
+        print("❌ Auto-fix: Missing except added", e)
         pass
             raise ValueError("Output path missing")
         log.info(f"✅ Background render completed: {out_path}")

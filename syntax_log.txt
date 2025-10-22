@@ -1,0 +1,4 @@
+  File "visora_backend.py", line 473
+    dialogues.append((name.lower(), text.strip())
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: invalid syntax. Perhaps you forgot a comma?

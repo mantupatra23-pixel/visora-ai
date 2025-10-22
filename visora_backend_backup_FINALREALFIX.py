@@ -131,13 +131,13 @@ def generate_video():
         }
 
     try:
-    pass
-    pass
         pass
 
+
     except Exception as e:
-    pass
         pass
+
+
 
         # 🎬 Simulated render process (placeholder - actual render will replace)
 
@@ -158,7 +158,6 @@ def generate_video():
         })
 
     except Exception as e:
-    pass
         pass
         log.exception("Video generation failed")
         return jsonify({
@@ -188,11 +187,8 @@ def health():
 
 def analyze_emotion(script_text: str) -> str:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         sentiment = blob.sentiment.polarity
         if sentiment > 0.3:
@@ -202,7 +198,6 @@ def analyze_emotion(script_text: str) -> str:
         else:
             return "neutral"
     except Exception as e:
-    pass
         pass
         log.exception("Emotion analysis failed")
         return "neutral"
@@ -256,11 +251,8 @@ def apply_cinematic_lighting(scene_path: str, mood: str) -> str:
 
 def generate_cinematic_scene(script_text: str) -> str:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         base_scene = f"scene_base_{uuid.uuid4().hex[:8]}"
         log.info(f"🎭 Detected mood: {mood}")
@@ -277,7 +269,6 @@ def generate_cinematic_scene(script_text: str) -> str:
         return f"{final_scene}_rendered_final.mp4"
 
     except Exception as e:
-    pass
         pass
         log.exception("UCVE Scene generation failed")
         return "error_scene.mp4"
@@ -292,11 +283,8 @@ def ucve_generate():
         return jsonify({"error": "Missing script text"}), 400
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         return jsonify({
             "status": "success",
@@ -304,7 +292,6 @@ def ucve_generate():
             "mood": analyze_emotion(script)
         })
     except Exception as e:
-    pass
         pass
         log.exception("UCVE endpoint failed")
         return jsonify({"status": "error", "message": str(e)})
@@ -321,63 +308,43 @@ GTTS_AVAILABLE = False
 PYDUB_AVAILABLE = False
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
     MOVIEPY_AVAILABLE = True
     except Exception as e:
-    pass
         pass
     log.info("moviepy not available: %s", e)
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
     from elevenlabs import generate as eleven_generate, save as eleven_save, set_api_key as eleven_set_api_key
     ELEVEN_AVAILABLE = True
 except Exception:
-    pass
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         ELEVEN_AVAILABLE = True  # we'll call REST if SDK not present
     except Exception:
-    pass
         ELEVEN_AVAILABLE = False
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
     GTTS_AVAILABLE = True
 except Exception:
-    pass
     GTTS_AVAILABLE = False
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
     PYDUB_AVAILABLE = True
 except Exception:
-    pass
     PYDUB_AVAILABLE = False
 
 # output folder
@@ -405,18 +372,12 @@ def synthesize_tts(
     ele_key = os.getenv("ELEVENLABS_API_KEY") or os.getenv("ELEVENLABS_KEY")
     if ele_key and ELEVEN_AVAILABLE:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
                     eleven_set_api_key(ele_key)
                     audio_bytes = eleven_generate(
@@ -447,29 +408,23 @@ def synthesize_tts(
                 log.info("TTS generated via ElevenLabs -> %s", filename)
                 return str(filename)
     except Exception as e:
-    pass
         pass
                 log.warning("ElevenLabs TTS failed: %s", e)
                 # fallthrough to gTTS
     except Exception as e:
-    pass
         pass
             log.warning("ElevenLabs generation error: %s", e)
 
     # gTTS fallback
     if GTTS_AVAILABLE:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             tts.save(str(filename))
             log.info("TTS generated via gTTS -> %s", filename)
             return str(filename)
     except Exception as e:
-    pass
         pass
             log.exception("gTTS failed: %s", e)
 
@@ -498,11 +453,8 @@ def attach_audio_to_video(
         out_path = Path(out_path)
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         aclip = AudioFileClip(audio_path)
 
@@ -537,22 +489,17 @@ def attach_audio_to_video(
          logger=None)
         # close clips
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             vclip.close()
             aclip.close()
         except Exception:
-    pass
 
         log.info("Audio attached -> %s", out_path)
         return str(out_path)
 
     except Exception as e:
-    pass
         pass
         log.exception("Attaching audio failed: %s", e)
         raise
@@ -580,11 +527,8 @@ def synthesize_and_attach():
         return jsonify({"error": "script required"}), 400
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         if video_path == "ucve" or not video_path:
             # use UCVE generate; re-use generate_cinematic_scene if present
@@ -597,11 +541,8 @@ def synthesize_and_attach():
         # generate tts
         tts_file = synthesize_tts(script, voice=voice)
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         return jsonify({
             "status": "success",
@@ -609,7 +550,6 @@ def synthesize_and_attach():
             "language": lang_target
         })
     except Exception as e:
-    pass
         pass
         log.exception("Subtitle generation failed")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -617,7 +557,6 @@ def synthesize_and_attach():
         bg_music = compose_emotion_music(mood, duration)
         return attach_audio_to_video(video_path, bg_music)
     except Exception as e:
-    pass
         pass
         log.exception("Failed to attach music")
         return video_path
@@ -638,11 +577,8 @@ def auto_music_scene():
         return jsonify({"error": "Script text required"}), 400
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         video = generate_cinematic_scene(script)
 
@@ -657,7 +593,6 @@ def auto_music_scene():
         })
 
     except Exception as e:
-    pass
         pass
         log.exception("Auto music generation failed")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -676,11 +611,8 @@ def init_firebase():
     """
     global FIREBASE_BUCKET
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             cred = credentials.Certificate("visora-firebase-key.json")
             firebase_admin.initialize_app(cred, {
@@ -689,7 +621,6 @@ def init_firebase():
         FIREBASE_BUCKET = storage.bucket()
         log.info("🔥 Firebase initialized successfully.")
     except Exception as e:
-    pass
         pass
         log.exception("Firebase initialization failed: %s", e)
         FIREBASE_BUCKET = None
@@ -733,15 +664,11 @@ def cloud_upload():
         return jsonify({"error": "file_path required"}), 400
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         return jsonify({"status": "success", "file_url": url})
     except Exception as e:
-    pass
         pass
         log.exception("Firebase upload failed")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -758,11 +685,8 @@ def auto_sync():
         return jsonify({"error": "Script required"}), 400
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         local_video = generate_cinematic_scene(script)
         # Step 2: Upload to Firebase
@@ -773,7 +697,6 @@ def auto_sync():
             "file": local_video
         })
     except Exception as e:
-    pass
         pass
         log.exception("Auto sync failed")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -890,11 +813,8 @@ def virtual_actor():
         return jsonify({"error": "script required"}), 400
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         url = upload_to_firebase(output)
         return jsonify({
@@ -904,7 +824,6 @@ def virtual_actor():
             "cloud_url": url
         })
     except Exception as e:
-    pass
         pass
         log.exception("Virtual actor generation failed")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -990,11 +909,8 @@ def apply_camera_director(video_path: str, shot_plan: List[Dict]) -> str:
 
         # apply effects by shot type
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
                 # mild color grade + slow zoom-out
                 seg = seg.fx(vfx.colorx, 1.02 + 0.01 * intensity)
@@ -1033,7 +949,6 @@ def apply_camera_director(video_path: str, shot_plan: List[Dict]) -> str:
             seg=seg.set_duration(end_t - start_t)
 
     except Exception as e:
-    pass
         pass
             log.warning("Camera director effect failed on segment: %s", e)
 
@@ -1059,15 +974,11 @@ def apply_camera_director(video_path: str, shot_plan: List[Dict]) -> str:
      logger=None)
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         base_clip.close()
     except Exception:
-    pass
 
     log.info("🎬 Camera Director produced -> %s", out_path)
     return str(out_path)
@@ -1092,11 +1003,8 @@ def camera_direct_endpoint():
         return jsonify({"error": "Provide video_path or script"}), 400
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         if not video_path or video_path == "ucve":
             if "generate_cinematic_scene" in globals():
@@ -1114,20 +1022,15 @@ def camera_direct_endpoint():
         cloud_url=None
         if FIREBASE_BUCKET:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             except Exception:
-    pass
                 cloud_url=None
 
         return jsonify(
             {"status": "success", "file": final_file, "cloud_url": cloud_url})
     except Exception as e:
-    pass
         pass
         log.exception("camera_direct endpoint failed: %s", e)
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -1138,24 +1041,17 @@ def camera_direct_endpoint():
 from datetime import datetime
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
 except Exception:
-    pass
     firebase_db=None
 
 def init_realtime_db():
     """Ensure Firebase Realtime DB initialized."""
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             return None
         if not firebase_admin._apps:
@@ -1165,18 +1061,14 @@ def init_realtime_db():
             firebase_admin.initialize_app(cred, {"databaseURL": url})
         log.info("🔄 Firebase Realtime Database ready.")
     except Exception as e:
-    pass
         pass
         log.warning("Realtime DB init failed: %s", e)
 
 def save_project_state(project_id: str, data: dict):
     """Push project JSON snapshot to Firebase DB."""
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             raise RuntimeError("Realtime DB not available")
         ref=firebase_db.reference(f"projects/{project_id}")
@@ -1184,7 +1076,6 @@ def save_project_state(project_id: str, data: dict):
         ref.set(data)
         log.info(f"☁️ Project {project_id} synced to cloud")
     except Exception as e:
-    pass
         pass
         log.warning("Project sync failed: %s", e)
 
@@ -1193,16 +1084,12 @@ def load_project_state(project_id: str) -> dict:
     if not firebase_db:
         return {}
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         data=ref.get()
         return data or {}
     except Exception as e:
-    pass
         pass
         log.warning("Fetch project failed: %s", e)
         return {}
@@ -1374,17 +1261,13 @@ def generate_ai_insights():
     sentiments=[]
     for v in vids:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             blob=textblob.TextBlob(txt)
             sentiments.append(blob.sentiment.polarity)
             categories.append(v.template or "General")
         except Exception:
-    pass
 
     avg_sent=statistics.mean(sentiments) if sentiments else 0.0
     trend=Counter(categories).most_common(3)
@@ -1433,27 +1316,20 @@ DOMAIN=os.getenv("DOMAIN", "http://127.0.0.1:5000")
 STRIPE_READY=False
 if STRIPE_SECRET_KEY:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         STRIPE_READY=True
         log.info("Stripe configured.")
     except Exception as e:
-    pass
         pass
         log.warning("Stripe init failed: %s", e)
 
 # --- Razorpay simple availability flag (use requests fallback if SDK not installed) ---
 RAZORPAY_READY=False
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
     if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
         razorpay_client=razorpay.Client(
@@ -1461,7 +1337,6 @@ RAZORPAY_READY=False
         RAZORPAY_READY=True
         log.info("Razorpay configured.")
     except Exception as e:
-    pass
         pass
     log.info("Razorpay SDK not available: %s", e)
     RAZORPAY_READY=False
@@ -1488,11 +1363,8 @@ def stripe_create_checkout():
     metadata=data.get("metadata", {})
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             payment_method_types=["card"],
             mode="payment",
@@ -1511,7 +1383,6 @@ def stripe_create_checkout():
         )
         return jsonify({"sessionId": session.id, "url": session.url})
     except Exception as e:
-    pass
         pass
         log.exception("Stripe checkout create failed")
         return jsonify({"error": str(e)}), 500
@@ -1526,28 +1397,20 @@ def stripe_webhook():
     # Verify webhook signature if secret provided
     if STRIPE_WEBHOOK_SECRET:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
     payload, sig_header, STRIPE_WEBHOOK_SECRET)
     except Exception as e:
-    pass
         pass
             log.exception("Stripe webhook signature verification failed")
             return jsonify({"error": "invalid signature"}), 400
     else:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         except Exception:
-    pass
             return jsonify({"error": "invalid payload"}), 400
 
     # Handle events
@@ -1572,11 +1435,8 @@ def stripe_webhook():
         amount=obj.get("amount_total") or obj.get("amount")  # cents
         # allocate credits or upgrade plan logic here
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
                 u=UserProfile.query.filter_by(email=user_email).first()
                 if u:
@@ -1589,7 +1449,6 @@ def stripe_webhook():
     credits_to_add,
      user_email)
         except Exception:
-    pass
             log.exception("Failed to allocate credits after stripe webhook")
 
     return jsonify({"status": "ok"}), 200
@@ -1612,11 +1471,8 @@ def razorpay_create_order():
         return jsonify({"error": "Razorpay not configured on server"}), 501
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             {"amount": amount, "currency": currency, "receipt": receipt, "notes": notes})
         return jsonify({"order": order})
@@ -1632,11 +1488,8 @@ def razorpay_create_order():
 
     # verify signature
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             msg="{}|{}".format(order_id, payment_id)
             generated_signature=hmac.new(
@@ -1647,11 +1500,8 @@ def razorpay_create_order():
                 return jsonify({"error": "invalid signature"}), 400
             # success -> allocate credits (example)
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
                     u=UserProfile.query.filter_by(email=user_email).first()
                     if u:
@@ -1661,13 +1511,11 @@ def razorpay_create_order():
                         db.session.commit()
                 return jsonify({"status": "ok"})
             except Exception:
-    pass
                 log.exception("Allocate after razorpay verify failed")
                 return jsonify({"status": "error"}), 500
         else:
             return jsonify({"error": "Razorpay not configured"}), 501
     except Exception as e:
-    pass
         pass
         log.exception("Razorpay verify failed: %s", e)
         return jsonify({"error": str(e)}), 500
@@ -1874,11 +1722,8 @@ def apply_camera_path(
 
     # Apply crop with functions
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
                           x2=lambda t: x2_at(t), y2=lambda t: y2_at(t))
         out_path=OUTPUT_DIR /
@@ -1890,18 +1735,13 @@ def apply_camera_path(
     audio_codec="aac",
      logger=None)
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             clip.close()
         except Exception:
-    pass
         return str(out_path)
     except Exception as e:
-    pass
         pass
         log.exception("Camera path application failed: %s", e)
         clip.close()
@@ -1924,11 +1764,8 @@ def camera_optimize_endpoint():
         return jsonify({"error": "provide video_path or script"}), 400
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         if video_path == "ucve" or not video_path:
             if "generate_cinematic_scene" in globals():
@@ -1948,20 +1785,15 @@ def camera_optimize_endpoint():
         cloud_url=None
         if FIREBASE_BUCKET:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             except Exception:
-    pass
                 cloud_url=None
 
         return jsonify(
             {"status": "success", "file": final_file, "cloud_url": cloud_url})
     except Exception as e:
-    pass
         pass
         log.exception("camera_optimize failed")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -1986,11 +1818,8 @@ def load_midas_model():
     if _midas_model is not None:
         return _midas_model, _midas_transform
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         midas.eval()
         transform=torch.hub.load(
@@ -2000,7 +1829,6 @@ def load_midas_model():
         log.info("MiDaS depth model loaded ✅")
         return midas, transform
     except Exception as e:
-    pass
         pass
         log.warning("MiDaS model load failed: %s", e)
         return None, None
@@ -2094,11 +1922,8 @@ def ucve_depth_parallax():
     duration=float(data.get("duration", 6.0))
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         video_path=apply_parallax_motion(
     _abs_path(img), depth_path, motion, duration)
@@ -2106,14 +1931,10 @@ def ucve_depth_parallax():
         cloud_url=None
         if FIREBASE_BUCKET:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             except Exception:
-    pass
                 cloud_url=None
 
         return jsonify({
@@ -2123,7 +1944,6 @@ def ucve_depth_parallax():
             "cloud_url": cloud_url
         })
     except Exception as e:
-    pass
         pass
         log.exception("Depth parallax failed")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -2254,15 +2074,11 @@ def color_grade_video(
     threads=2,
      logger=None)
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         clip.close()
     except Exception:
-    pass
     return str(out_path)
 
 # Flask endpoint: grade by mood
@@ -2282,30 +2098,22 @@ def color_grade_endpoint():
         return jsonify({"error": "video_path required"}), 400
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             video_path=generate_cinematic_scene(data.get("script", ""))
         out=color_grade_video(video_path, mood=mood)
         cloud_url=None
         if FIREBASE_BUCKET:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             except Exception:
-    pass
                 cloud_url=None
         return jsonify(
             {"status": "success", "file": out, "cloud_url": cloud_url})
     except Exception as e:
-    pass
         pass
         log.exception("Color grading failed: %s", e)
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -2328,11 +2136,8 @@ from prometheus_client import Counter, Gauge, generate_latest, CollectorRegistry
 REDIS_URL=os.getenv("REDIS_URL", None)
 USE_RQ=False
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         import redis
         from rq import Queue, Connection, Worker
@@ -2347,7 +2152,6 @@ USE_RQ=False
         USE_RQ=False
         log.info("REDIS_URL not set - RQ disabled, using thread fallback.")
     except Exception as e:
-    pass
         pass
     USE_RQ=False
     log.warning("RQ/Redis not available: %s", e)
@@ -2368,11 +2172,8 @@ def thread_worker_loop():
                 job=thread_queue.pop(0)
         if job:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
                 job_fn=job.get("fn")
                 job_args=job.get("args", ())
@@ -2382,7 +2183,6 @@ def thread_worker_loop():
                 job_fn(*job_args, **job_kwargs)
                 render_jobs[job_id]["status"]="done"
     except Exception as e:
-    pass
         pass
                 log.exception("Thread worker job failed: %s", e)
                 render_jobs[job_id]["status"]="failed"
@@ -2423,15 +2223,11 @@ MET_ACTIVE_WORKERS.set(1 if not USE_RQ else 0)
 def metrics():
     # expose prometheus metrics (standard)
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         return (data, 200, {'Content-Type': CONTENT_TYPE_LATEST})
     except Exception as e:
-    pass
         pass
         log.exception("Failed to generate metrics")
         return jsonify({"error": "metrics failed", "details": str(e)}), 500
@@ -2461,18 +2257,14 @@ def enqueue_render_job_internal(fn, *args, **kwargs):
 
     if USE_RQ:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             rq_job=rq_queue.enqueue(fn, *args, **kwargs, job_id=job_id)
             render_jobs[job_id]["status"]="queued_rq"
             render_jobs[job_id]["rq_id"]=rq_job.get_id()
             log.info("Enqueued job %s to RQ %s", job_id, rq_job.get_id())
     except Exception as e:
-    pass
         pass
             log.exception("RQ enqueue failed, falling back to thread: %s", e)
             # fallback to thread
@@ -2512,11 +2304,8 @@ def enqueue_render():
     # Choose the actual function to run (safe wrappers)
     def job_wrapper(video_id, script_text, flow_name):
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             v=UserVideo.query.get(video_id)
             if v:
@@ -2539,15 +2328,11 @@ def enqueue_render():
             render_jobs[video_id.hex if hasattr(video_id, 'hex') else video_id]={
                                                 "status": "done", "output_file": out}
     except Exception as e:
-    pass
         pass
             log.exception("Background job failed: %s", e)
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
                     v.status="failed"; db.session.commit()
             except:
@@ -2582,29 +2367,21 @@ def readiness():
     ok=True
     reasons=[]
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         db.session.execute("SELECT 1")
     except Exception as e:
-    pass
         pass
         ok=False
         reasons.append(f"db:{str(e)[:120]}")
 
     if USE_RQ:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
     except Exception as e:
-    pass
         pass
             ok=False
             reasons.append(f"redis:{str(e)[:120]}")
@@ -2701,11 +2478,8 @@ def gallery_delete():
     if not v:
         return jsonify({"error": "not found"}), 404
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             abs_path=_abs_path(v.file_path)
             if os.path.exists(abs_path):
@@ -2714,7 +2488,6 @@ def gallery_delete():
         db.session.commit()
         return jsonify({"status": "deleted", "video_id": vid_id})
     except Exception as e:
-    pass
         pass
         log.exception("delete failed")
         return jsonify({"error": str(e)}), 500
@@ -2804,16 +2577,12 @@ def admin_cleanup():
     for folder in [TMP_FOLDER, OUTPUT_FOLDER]:
         for f in Path(folder).glob("*"):
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
                     f.unlink()
                     removed += 1
             except Exception:
-    pass
     return jsonify({"status": "cleaned", "files_removed": removed})
 
 # ---------- 5️⃣ Thumbnail Generator ----------
@@ -2821,18 +2590,14 @@ def generate_video_thumbnail(video_path: str) -> str:
     """Generate first-frame thumbnail for gallery display."""
     thumb_path=str(OUTPUT_FOLDER / f"thumb_{uuid.uuid4().hex[:8]}.jpg")
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         ret, frame=cap.read()
         if ret:
             cv2.imwrite(thumb_path, frame)
         cap.release()
     except Exception as e:
-    pass
         pass
         log.warning("thumbnail failed: %s", e)
     return thumb_path
@@ -2937,11 +2702,8 @@ def upload_character():
 
     # Save to DB (if enabled)
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             c=CharacterProfile(
     email=email,
@@ -2951,7 +2713,6 @@ def upload_character():
             db.session.add(c)
             db.session.commit()
     except Exception as e:
-    pass
         pass
         log.warning(f"Character DB update failed: {e}")
 
@@ -2998,11 +2759,8 @@ from moviepy.editor import ImageClip, AudioFileClip, CompositeAudioClip
 def detect_emotion_from_audio(audio_path):
     """Analyze audio tone to detect emotion"""
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         energy=np.mean(np.abs(y))
         zcr=np.mean(librosa.feature.zero_crossing_rate(y))
@@ -3017,7 +2775,6 @@ def detect_emotion_from_audio(audio_path):
         else:
             return "neutral"
     except Exception as e:
-    pass
         pass
         log.warning(f"Emotion detect failed: {e}")
         return "neutral"
@@ -3184,14 +2941,10 @@ def morph_voice_emotion(
 
     # pitch shift
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
     except Exception:
-    pass
         shifted=mono
 
     # apply envelope shaping / dynamic
@@ -3229,11 +2982,8 @@ def fuse_scenes_timeline(
     # apply transitions
     fused=None
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             raise ValueError("No clips provided")
         # build progressive fusion
@@ -3280,7 +3030,6 @@ def fuse_scenes_timeline(
         else:
             fused=concatenate_videoclips(out_clips, method="compose")
     except Exception as e:
-    pass
         pass
         log.exception("Scene fusion failed: %s", e)
         # fallback: try naive concat
@@ -3296,16 +3045,12 @@ def fuse_scenes_timeline(
      logger=None)
     # close clips
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         for c in clips:
             c.close()
     except Exception:
-    pass
     return str(out_name)
 
 # ---------------- Flask endpoints ----------------
@@ -3332,16 +3077,12 @@ def api_morph_emotion():
 
     outp=OUTPUT_FOLDER / f"morphed_{target}_{uuid.uuid4().hex[:8]}.wav"
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         return jsonify({"status": "ok", "morphed_audio": str(
             Path(morphed).relative_to(BASE_DIR))})
     except Exception as e:
-    pass
         pass
         log.exception("morph failed: %s", e)
         return jsonify({"error": "morph failed", "details": str(e)}), 500
@@ -3362,29 +3103,21 @@ def api_scene_fuse():
         return jsonify({"error": "scenes required"}), 400
     abs_scenes=[_abs_path(s) for s in scenes]
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         # optionally upload to firebase
         cloud=None
         if FIREBASE_BUCKET:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             except Exception:
-    pass
                 cloud=None
         return jsonify({"status": "ok", "file": str(
             Path(out).relative_to(BASE_DIR)), "cloud_url": cloud})
     except Exception as e:
-    pass
         pass
         log.exception("scene fuse failed: %s", e)
         return jsonify({"error": "fuse failed", "details": str(e)}), 500
@@ -3481,24 +3214,17 @@ def selfcheck():
 
     for m in modules:
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             status[m]="✅ Loaded"
     except Exception as e:
-    pass
         pass
             status[m]=f"❌ Missing ({str(e)})"
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         device="cuda" if torch.cuda.is_available() else "cpu"
         status["torch_device"]=f"🧠 Torch running on {device}"
@@ -3526,11 +3252,8 @@ def generate_voice_video():
     Generate video with AI narration (text-to-speech + auto sync)
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         script_text=data.get("script", "")
         video_path=data.get("video_path", "")
@@ -3565,7 +3288,6 @@ def generate_voice_video():
         })
 
     except Exception as e:
-    pass
         pass
         log.exception("VFE UCVE v23 error")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -3605,11 +3327,8 @@ def _generate_image_via_api(prompt: str, out_path: str) -> bool:
     if not IMAGE_API_KEY or not IMAGE_API_URL:
         return False
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         headers={"Authorization": f"Bearer {IMAGE_API_KEY}"}
         r=requests.post(
@@ -3632,7 +3351,6 @@ def _generate_image_via_api(prompt: str, out_path: str) -> bool:
                 f.write(rr.content)
             return True
     except Exception as e:
-    pass
         pass
         log.warning("External image API failed: %s", e)
     return False
@@ -3650,11 +3368,8 @@ def _generate_fallback_image(prompt: str, out_path: str, size=(1280, 720)):
         draw.line([(0, i), (w, i)], fill=(r, g, b))
     # draw prompt text in center (small)
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
     except:
         font=ImageFont.load_default()
@@ -3700,11 +3415,8 @@ def scenegen_endpoint():
     }
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         script=data.get("script", "").strip()
         vtype=data.get("type", "short")
@@ -3737,7 +3449,6 @@ def scenegen_endpoint():
             {"status": "success", "output": out_path, "tmpdir": tmpdir})
 
     except Exception as e:
-    pass
         pass
         log.exception("SceneGen UCVE v24 failed")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -3772,17 +3483,13 @@ def generate_auto_meta(video_path: str):
 
     # generate thumbnail (1st frame)
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         thumb_path=video_path.replace(".mp4", "_thumb.jpg")
         clip.save_frame(thumb_path, t=0.5)
         clip.close()
     except Exception as e:
-    pass
         pass
         thumb_path=None
         print(f"⚠️ Thumbnail generation failed: {e}")
@@ -3799,11 +3506,8 @@ def upload_to_platforms(
      user_tokens):
     """Upload to YouTube, Instagram, Facebook (selected by user)."""
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         result={}
 
@@ -3826,7 +3530,6 @@ def upload_to_platforms(
         return {"status": "success", "details": result}
 
     except Exception as e:
-    pass
         pass
         print(f"⚠️ Upload failed: {e}")
         return {"status": "error", "message": str(e)}
@@ -3847,11 +3550,8 @@ def analyze_voice_for_lipsync(voice_path: str):
     Used to estimate mouth movement frames.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         # RMS (root-mean-square) energy
         rms=librosa.feature.rms(y=y)[0]
@@ -3861,7 +3561,6 @@ def analyze_voice_for_lipsync(voice_path: str):
         timestamps=librosa.frames_to_time(peaks, sr=sr)
         return timestamps.tolist()
     except Exception as e:
-    pass
         pass
         # Return empty list on error
         return []
@@ -3872,11 +3571,8 @@ def generate_emotion_tone(voice_path: Optional[str]) -> str:
     (This is a simple heuristic, not a neural emotion model.)
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             return "neutral"
         y, sr=librosa.load(voice_path, sr=None)
@@ -3887,7 +3583,6 @@ def generate_emotion_tone(voice_path: Optional[str]) -> str:
             return "happy"
         return "calm"
     except Exception:
-    pass
         return "neutral"
 
 def apply_realmode_v3(video_path: str, voice_path: Optional[str]=None):
@@ -3896,21 +3591,15 @@ def apply_realmode_v3(video_path: str, voice_path: Optional[str]=None):
     Returns dict with status & output path or error.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         clip=VideoFileClip(video_path)
 
         # simple color/contrast enhancement
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
     vfx.colorx,
     1.12).fx(
@@ -3918,7 +3607,6 @@ def apply_realmode_v3(video_path: str, voice_path: Optional[str]=None):
         lum=6,
          contrast=12)
         except Exception:
-    pass
 
         # lip-sync timestamps (simple)
         mouth_motion=analyze_voice_for_lipsync(
@@ -3966,7 +3654,6 @@ def apply_realmode_v3(video_path: str, voice_path: Optional[str]=None):
     "mouth_frames": len(mouth_motion),
      "output": output_path}
     except Exception as e:
-    pass
         pass
         return {"status": "error", "message": str(e)}
 
@@ -3974,11 +3661,8 @@ def apply_realmode_v3(video_path: str, voice_path: Optional[str]=None):
 @ app.route("/realmode_v3", methods=["POST"])
 def realmode_v3():
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             return jsonify({"error": "Video file missing"}), 400
         video=request.files['video']
@@ -3996,7 +3680,6 @@ def realmode_v3():
         result=apply_realmode_v3(video_path, voice_path)
         return jsonify(result)
     except Exception as e:
-    pass
         pass
         return jsonify({"status": "error", "message": str(e)})
 
@@ -4047,11 +3730,8 @@ def health():
 @ app.route("/render", methods=["POST"])
 def render_job():
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         job_id=str(uuid.uuid4())
         print(f"🎞️ Render started for job {job_id}")
@@ -4062,7 +3742,6 @@ def render_job():
             "message": "Video render simulation success"
         }), 200
     except Exception as e:
-    pass
         pass
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -4077,26 +3756,18 @@ from flask import request, jsonify, send_file
 
 # If your project placed these files elsewhere, adjust imports accordingly
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
 except Exception:
-    pass
     def generate_story(topic, duration="short", style="cinematic"):
         return f"(local-fallback) A short story about {topic}."
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
 except Exception:
-    pass
     def generate_and_save_tts(text, lang="en"):
         # fallback: create a small dummy file path or raise for missing
         # dependency
@@ -4107,14 +3778,10 @@ except Exception:
         return dummy
 
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
 except Exception:
-    pass
     # fallback queue (very small)
     _local_queue={}
     def add_job(payload):
@@ -4180,14 +3847,10 @@ def create_video():
 
     # 2) generate TTS (sync) - returns saved audio path
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
     except Exception as e:
-    pass
         pass
         # if TTS fails, we still enqueue job but note failure
         tts_path=None
@@ -4231,14 +3894,10 @@ def stage3_status(job_id):
     meta=STAGE3_JOBS.get(job_id, {})
     q={}
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
     except Exception:
-    pass
         q={"status": "unknown", "progress": 0}
     resp={"job_id": job_id, "meta": meta, "queue": q}
     return jsonify(resp)
@@ -4277,14 +3936,10 @@ def stage3_preview_demo(job_id):
             return send_file(v, as_attachment=False)
     # else try to generate quick demo using moviepy if available
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
     except Exception as e:
-    pass
         pass
         return jsonify(
             {"error": "moviepy not available for preview", "details": str(e)}), 501
@@ -4295,11 +3950,8 @@ def stage3_preview_demo(job_id):
     duration=6
     if tts and os.path.exists(tts):
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             # cut or extend to duration
             a=audio.subclip(0, min(audio.duration, duration))
@@ -4338,7 +3990,6 @@ def stage3_preview_demo(job_id):
                 clip.close(); audio.close()
                 return send_file(outp, as_attachment=False)
     except Exception as e:
-    pass
         pass
             return jsonify(
                 {"error": "preview generation failed", "details": str(e)}), 500
@@ -4362,11 +4013,8 @@ def create_video():
     4️⃣ GPU/CPU Render Queue
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         topic=data.get("topic", "Untitled Story")
         style=data.get("style", "cinematic")
@@ -4391,7 +4039,6 @@ def create_video():
         }), 200
 
     except Exception as e:
-    pass
         pass
         print("❌ Error in /create_video:", e)
         return jsonify({"error": str(e)}), 500
@@ -4418,11 +4065,8 @@ def preview_video():
     Returns short MP4 clip for user review.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         tts=data.get("tts_path")
         duration=float(data.get("duration", 6))
@@ -4461,7 +4105,6 @@ def preview_video():
         return send_file(preview_path, as_attachment=False)
 
     except Exception as e:
-    pass
         pass
         print("❌ Preview generation error:", e)
         return jsonify({"error": str(e)}), 500
@@ -4473,11 +4116,8 @@ def upload_to_cloud():
     ☁️ Upload rendered video to Firebase Cloud Storage.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         video_path=data.get("video_path")
 
@@ -4495,7 +4135,6 @@ def upload_to_cloud():
         return jsonify({"status": "success", "url": public_url}), 200
 
     except Exception as e:
-    pass
         pass
         print("❌ Upload failed:", e)
         return jsonify({"error": str(e)}), 500
@@ -4526,11 +4165,8 @@ def generate_tts_audio(script_text: str):
     Generate multi-character TTS safely and combine outputs.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         dialogues = parse_dialogues(script_text)
         if not dialogues:
@@ -4549,7 +4185,6 @@ def generate_tts_audio(script_text: str):
         return combined_audio
     
     except Exception as e:
-    pass
         pass
         log.error(f"❌ TTS generation failed: {e}")
         return None
@@ -4561,11 +4196,8 @@ def generate_tts_audio(script_text: str):
     Generate multi-character TTS safely and combine outputs.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         dialogues = parse_dialogues(script_text)
 
@@ -4585,7 +4217,6 @@ def generate_tts_audio(script_text: str):
         return combined_audio
 
     except Exception as e:
-    pass
         pass
         log.error(f"❌ TTS generation failed: {e}")
         return None
@@ -4598,11 +4229,8 @@ def generate_3d_background(theme: str = "sunset"):
     Returns path to rendered background image (PNG).
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         import open3d as o3d
         import cv2
@@ -4629,7 +4257,6 @@ def generate_3d_background(theme: str = "sunset"):
         return output_path
 
     except Exception as e:
-    pass
         pass
         log.error(f"❌ Background generation failed: {e}")
         return None
@@ -4641,11 +4268,8 @@ def initialize_render_job():
     Initialize and start render job safely.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         job_data = {
             "status": "initialized",
@@ -4657,7 +4281,6 @@ def initialize_render_job():
         return job_data
 
     except Exception as e:
-    pass
         pass
         log.error(f"❌ Render job initialization failed: {e}")
         return {"status": "failed", "error": str(e)}
@@ -4669,11 +4292,8 @@ def apply_lighting_and_depth():
     Apply lighting and depth to 2D image and generate pseudo-3D look.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         import cv2
         import os
@@ -4703,7 +4323,6 @@ def apply_lighting_and_depth():
         return output_path
 
     except Exception as e:
-    pass
         pass
         log.error(f"❌ Lighting/Depth generation failed: {e}")
         return None
@@ -4715,11 +4334,8 @@ def initialize_render_job():
     Initialize and start render job safely.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         job_data = {
             "status": "initialized",
@@ -4731,7 +4347,6 @@ def initialize_render_job():
         return job_data
 
     except Exception as e:
-    pass
         pass
         log.error(f"❌ Render job initialization failed: {e}")
         return {"status": "failed", "error": str(e)}
@@ -4743,17 +4358,13 @@ def finalize_output_path(out_path: str):
     Finalizes the output file path safely.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             raise ValueError("Output path is empty.")
         log.info(f"✅ Background render completed: {out_path}")
         return str(out_path)
     except Exception as e:
-    pass
         pass
         log.error(f"❌ finalize_output_path() failed: {e}")
         return None
@@ -4765,16 +4376,12 @@ def setup_language_target():
     Setup the language target safely for the AI renderer.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         log.info(f"🌐 Language target initialized: {lang_target}")
         return lang_target
     except Exception as e:
-    pass
         pass
         log.error(f"❌ setup_language_target() failed: {e}")
         return "en"
@@ -4785,17 +4392,13 @@ def finalize_output_path(out_path: str):
     Finalizes and validates output path.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             raise ValueError("Output path missing")
         log.info(f"✅ Background render completed: {out_path}")
         return str(out_path)
     except Exception as e:
-    pass
         pass
         log.error(f"❌ finalize_output_path() failed: {e}")
         return None
@@ -4807,16 +4410,12 @@ def setup_language_target():
     Setup the language target safely for the AI renderer.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         log.info(f"🌐 Language target initialized: {lang_target}")
         return lang_target
     except Exception as e:
-    pass
         pass
         log.error(f"❌ setup_language_target() failed: {e}")
         return "en"
@@ -4827,17 +4426,13 @@ def finalize_output_path(out_path: str):
     Finalizes and validates output path.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             raise ValueError("Output path missing")
         log.info(f"✅ Background render completed: {out_path}")
         return str(out_path)
     except Exception as e:
-    pass
         pass
         log.error(f"❌ finalize_output_path() failed: {e}")
         return None
@@ -4849,16 +4444,12 @@ def setup_language_target():
     Setup the language target safely for the AI renderer.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
         log.info(f"🌐 Language target initialized: {lang_target}")
         return lang_target
     except Exception as e:
-    pass
         pass
         log.error(f"❌ setup_language_target() failed: {e}")
         return "en"
@@ -4869,17 +4460,13 @@ def finalize_output_path(out_path: str):
     Finalizes and validates output path safely.
     """
     try:
-    pass
-    pass
         pass
     except Exception as e:
-    pass
         pass
             raise ValueError("Output path missing")
         log.info(f"✅ Background render completed: {out_path}")
         return str(out_path)
     except Exception as e:
-    pass
         pass
         log.error(f"❌ finalize_output_path() failed: {e}")
         return None
