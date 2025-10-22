@@ -1,0 +1,322 @@
+*** Begin Patch
+*** Update File: visora_backend.py
+@@
+-import firebase_admin
+-from firebase_admin import credentials, storage
+-
+-FIREBASE_BUCKET = None
++# Optional imports (graceful fallback)
++MOVIEPY_AVAILABLE = False
++PYDUB_AVAILABLE = False
++FIREBASE_AVAILABLE = False
++TEXTBLOB_AVAILABLE = False
++PIL_AVAILABLE = False
++
++try:
++    from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
++    MOVIEPY_AVAILABLE = True
++except Exception as _e:
++    # moviepy might not be installed on small/mobile envs
++    logging.info("moviepy not available: %s", _e)
++
++try:
++    from pydub import AudioSegment
++    PYDUB_AVAILABLE = True
++except Exception as _e:
++    logging.info("pydub not available: %s", _e)
++
++try:
++    import firebase_admin
++    from firebase_admin import credentials, storage, db as firebase_db
++    FIREBASE_AVAILABLE = True
++except Exception as _e:
++    logging.info("firebase_admin not available: %s", _e)
++
++try:
++    from textblob import TextBlob
++    TEXTBLOB_AVAILABLE = True
++except Exception as _e:
++    logging.info("textblob not available: %s", _e)
++
++try:
++    from PIL import Image, ImageDraw, ImageFont
++    PIL_AVAILABLE = True
++except Exception as _e:
++    logging.info("PIL not available: %s", _e)
++
++FIREBASE_BUCKET = None
++FIREBASE_DB = None
+@@
+-def generate_subtitles(script_text: str, lang_target: str = "hi", dur_per_line: float = 3.5) -> List[Tuple[str, float, float]]:
+-    """
+-    Generate list of (text, start, end) tuples for subtitles.
+-    Simple per-line segmentation.
+-    """
+-    lines = script_text.strip().splitlines()
+-    subs = []
+-    start_time = 0.0
+-    dur_per_line = 3.5  # seconds per line (approx)
+-    for line in lines:
+-        if not line.strip():
+-            continue
+-        end_time = start_time + dur_per_line
+-        subs.append((line.strip(), start_time, end_time))
+-        start_time = end_time
+-    return subs
++def generate_subtitles(script_text: str, lang_target: str = "hi", dur_per_line: float = 3.5) -> List[Tuple[str, float, float]]:
++    """
++    Generate list of (text, start, end) tuples for subtitles.
++    Simple per-line segmentation with rounding and empty-line skip.
++    """
++    lines = [ln for ln in script_text.strip().splitlines() if ln.strip()]
++    subs = []
++    start_time = 0.0
++    for line in lines:
++        end_time = start_time + dur_per_line
++        subs.append((line.strip(), round(start_time, 2), round(end_time, 2)))
++        start_time = end_time
++    return subs
+@@
+-def init_firebase():
+-    """
+-    Initialize Firebase app if not already done.
+-    """
+-    global FIREBASE_BUCKET
+-    try:
+-        if not firebase_admin._apps:
+-            cred = credentials.Certificate("visora-firebase.json")
+-            firebase_admin.initialize_app(cred, {
+-                "storageBucket": os.getenv("FIREBASE_BUCKET")
+-            })
+-        FIREBASE_BUCKET = storage.bucket()
+-        log.info("🔥 Firebase initialized successfully.")
+-    except Exception as e:
+-        log.exception("Firebase initialization failed: %s", e)
+-        FIREBASE_BUCKET = None
++def init_firebase() -> bool:
++    """
++    Initialize Firebase app if possible. Returns True if initialized.
++    Uses env vars:
++      - FIREBASE_CRED_PATH : path to service account json
++      - FIREBASE_BUCKET : bucket name (optional if in cred)
++      - FIREBASE_DB_URL : realtime DB url (optional)
++    """
++    global FIREBASE_BUCKET, FIREBASE_DB
++    if not FIREBASE_AVAILABLE:
++        logging.info("firebase_admin not installed.")
++        return False
++    try:
++        if not firebase_admin._apps:
++            cred_path = os.getenv("FIREBASE_CRED_PATH")
++            bucket_name = os.getenv("FIREBASE_BUCKET")
++            db_url = os.getenv("FIREBASE_DB_URL")
++            if not cred_path or not os.path.exists(cred_path):
++                logging.warning("FIREBASE_CRED_PATH not set or file missing.")
++                return False
++            cred = credentials.Certificate(cred_path)
++            firebase_admin.initialize_app(cred, {"storageBucket": bucket_name, "databaseURL": db_url})
++        FIREBASE_BUCKET = storage.bucket()
++        try:
++            FIREBASE_DB = firebase_db
++        except Exception:
++            FIREBASE_DB = None
++        logging.info("Firebase initialized successfully.")
++        return True
++    except Exception as e:
++        logging.exception("Firebase initialization failed")
++        return False
+@@
+-def upload_to_firebase(local_path: str, remote_path: str = None):
+-    """
+-    Upload file to firebase storage (simple wrapper)
+-    """
+-    if not FIREBASE_BUCKET:
+-        log.info("Firebase not initialized or bucket missing.")
+-        return None
+-    try:
+-        if not remote_path:
+-            remote_path = os.path.basename(local_path)
+-        blob = FIREBASE_BUCKET.blob(remote_path)
+-        blob.upload_from_filename(local_path)
+-        blob.make_public()
+-        return blob.public_url
+-    except Exception as e:
+-        log.exception("upload_to_firebase failed: %s", e)
+-        return None
++def upload_to_firebase(local_path: str, remote_path: str) -> Optional[str]:
++    if not (FIREBASE_AVAILABLE and FIREBASE_BUCKET):
++        logging.info("Firebase or bucket not available.")
++        return None
++    try:
++        blob = FIREBASE_BUCKET.blob(remote_path)
++        blob.upload_from_filename(local_path)
++        blob.make_public()
++        return blob.public_url
++    except Exception as e:
++        logging.exception("upload_to_firebase failed")
++        return None
+@@
+-def compose_emotion_music(mood: str, duration: float = 20.0) -> str:
+-    """
+-    Compose simple emotion-based instrumental track.
+-    Uses sine waves + harmony tones to simulate emotion-based background.
+-    """
+-    base_freqs = {
+-        "happy": [440, 660, 880],  # A major (bright)
+-        "sad": [220, 330, 440],    # A minor (dark)
+-        "neutral": [392, 523, 659] # G major (soft)
+-    }
+-    freqs = base_freqs.get(mood, base_freqs["neutral"])
+-    # naive sine wave generator (placeholder)
+-    seg = AudioSegment.silent(duration=0)
+-    for f in freqs:
+-        tone = Sine(f).to_audio_segment(duration=int(duration*1000))
+-        seg += tone - 20
+-    out = "bg_music_{}.mp3".format(mood)
+-    seg.export(out, format="mp3")
+-    return out
++def compose_emotion_music(mood: str, duration: float = 20.0, out_path: str = "bg_music.mp3") -> Optional[str]:
++    """
++    Compose/simple pick bg music for mood. If pydub installed and sample files present,
++    uses them; otherwise writes silent file or returns None.
++    """
++    if not PYDUB_AVAILABLE:
++        logging.info("pydub not available -> skipping music composition")
++        return None
++    try:
++        pool = CINEMATIC_SOUNDS.get(mood, CINEMATIC_SOUNDS["neutral"])
++        found = None
++        for fname in pool:
++            if os.path.exists(fname):
++                found = fname
++                break
++        if found:
++            seg = AudioSegment.from_file(found)
++            needed_ms = int(duration * 1000)
++            out = seg * (needed_ms // len(seg) + 1)
++            out = out[:needed_ms]
++            out.export(out_path, format="mp3")
++            return out_path
++        else:
++            # fallback silent audio
++            silence = AudioSegment.silent(duration=int(duration*1000))
++            silence.export(out_path, format="mp3")
++            return out_path
++    except Exception as e:
++        logging.exception("compose_emotion_music failed")
++        return None
+@@
+-def generate_actor_image(actor_type: str = "male", text: str = ""):
+-    """
+-    Generate or load an actor face based on type (male/female/child/old)
+-    and overlay name or role text.
+-    """
+-    base_path = ACTOR_MODELS.get(actor_type, ACTOR_MODELS["male"])
+-    img = Image.open(base_path).convert("RGBA")
+-    # Overlay text
+-    draw = ImageDraw.Draw(img)
+-    font = ImageFont.load_default()
+-    draw.text((20, img.height - 40), f"{actor_type.title()}: {text}", font=font, fill=(255,255,255))
+-    out = f"actor_{actor_type}.png"
+-    img.save(out)
+-    return out
++def generate_actor_image(actor_type: str = "male", text: str = "") -> Optional[str]:
++    out_path = f"actor_{actor_type}_{uuid.uuid4().hex[:6]}.png"
++    if not PIL_AVAILABLE:
++        logging.info("PIL not available -> skipping actor image generation")
++        return None
++    try:
++        base_path = ACTOR_MODELS.get(actor_type)
++        if base_path and os.path.exists(base_path):
++            img = Image.open(base_path).convert("RGBA")
++        else:
++            img = Image.new("RGBA", (512, 512), (80, 80, 120, 255))
++        draw = ImageDraw.Draw(img)
++        try:
++            font = ImageFont.load_default()
++        except Exception:
++            font = None
++        draw.text((20, img.height - 60), text or actor_type.title(), fill=(255, 255, 255), font=font)
++        img.save(out_path)
++        return out_path
++    except Exception as e:
++        logging.exception("generate_actor_image failed")
++        return None
+@@
+-def detect_dialogues(script_text: str):
+-    """
+-    Detect dialogues in format:
+-    Tiger: The jungle is mine.
+-    Monkey: Not until you climb that tree!
+-    """
+-    lines = script_text.splitlines()
+-    dialogues = []
+-    for line in lines:
+-        line = line.strip()
+-        if not line:
+-            continue
+-        m = re.match(r"^([A-Za-z]+):\s*(.+)$", line)
+-        if m:
+-            dialogues.append({"speaker": m.group(1).strip(), "text": m.group(2).strip()})
+-        else:
+-            dialogues.append({"speaker": "narrator", "text": line})
+-    return dialogues
++def detect_dialogues(script_text: str) -> List[Dict]:
++    """
++    Detect dialogues in format: Character: dialogue text
++    returns list of dicts {"speaker": ..., "text": ...}
++    """
++    lines = script_text.splitlines()
++    dialogues = []
++    for line in lines:
++        line = line.strip()
++        if not line:
++            continue
++        m = re.match(r"^([A-Za-z0-9_ ]+):\s*(.+)$", line)
++        if m:
++            dialogues.append({"speaker": m.group(1).strip(), "text": m.group(2).strip()})
++        else:
++            # treat as narrator if not matched
++            dialogues.append({"speaker": "narrator", "text": line})
++    return dialogues
+@@
+-def plan_camera_shots(script_text: str):
+-    """
+-    Return list of shot descriptors:
+-    { "type": "wide"|"closeup"|"action"|"dramatic",
+-      "duration": sec, "intensity": 0..1}
+-    This is heuristic-based: you can expand rules as needed.
+-    """
+-    txt = script_text.lower()
+-    shots = []
+-    # Start with opening wide shot
+-    shots.append({"type": "wide", "duration": 2.5, "intensity": 0.2})
+-    # simple: one shot per sentence
+-    sentences = re.split(r'[.!?]\s*', script_text.strip())
+-    for s in sentences:
+-        if not s.strip():
+-            continue
+-        t = "closeup" if len(s.split()) < 6 else "action"
+-        shots.append({"type": t, "duration": min(4.0, max(1.5, len(s.split())*0.3)), "intensity": 0.3})
+-    return shots
++def plan_camera_shots(script_text: str) -> List[Dict]:
++    """
++    Return list of shot descriptors: type, duration, intensity heuristic.
++    """
++    txt = script_text.lower()
++    shots = []
++    # start with wide
++    shots.append({"type": "wide", "duration": 2.5, "intensity": 0.2})
++    # add shots per sentence
++    sentences = re.split(r'[\.!\?]\s*', script_text.strip())
++    for s in sentences:
++        if not s.strip():
++            continue
++        t = "closeup" if len(s.split()) < 6 else "medium"
++        dur = min(4.5, max(1.5, len(s.split()) * 0.3))
++        shots.append({"type": t, "duration": round(dur, 2), "intensity": 0.3})
++    # end with a dramatic shot if words like 'finally' or 'end' exist
++    if any(k in txt for k in ["finally", "end", "conclusion", "reward"]):
++        shots.append({"type": "dramatic", "duration": 3.0, "intensity": 0.8})
++    return shots
+*** End Patch
