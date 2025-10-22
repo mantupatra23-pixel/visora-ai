@@ -1,10 +1,10 @@
-# =====================================================
-# 🚀 VISORA AI – UCVE v30 (CloudSafe Backend Build)
+# 🚀 VISORA AI – UCVE X v30 (CloudSafe Backend Build)
 # Author: Aimantuvya & GPT-5
-# Description: Universal Cinematic Video Engine (Render Safe)
-# =====================================================
+# Description: Universal Cinematic Video Engine | Render Ready (GPU + CPU)
 
 # 🌿 Core Framework
+fastapi==0.115.0
+uvicorn==0.30.6
 Flask==3.0.3
 Werkzeug==3.0.3
 itsdangerous==2.2.0
@@ -24,6 +24,9 @@ SpeechRecognition==3.10.1
 pydub==0.25.1
 typing_extensions==4.12.2
 stripe==9.10.0
+librosa==0.10.2
+soundfile==0.12.1
+scipy==1.13.1
 
 # 🎬 Video + Audio Rendering
 moviepy==1.0.3
@@ -32,11 +35,8 @@ imageio-ffmpeg==0.5.1
 opencv-python==4.10.0.84
 Pillow==10.3.0
 numpy==1.26.4
-soundfile==0.12.1
-scipy==1.13.1
-librosa==0.10.
 
-# ⚙️ Background Task + Cache
+# 🧩 Background Task + Cache
 redis==5.0.4
 rq==1.16.2
 
@@ -45,7 +45,7 @@ boto3==1.34.19
 google-cloud-storage==2.16.0
 requests==2.32.3
 
-# 🧩 Utility + Logging + Time
+# 🪄 Utility + Logging + Time
 python-dotenv==1.0.1
 uuid==1.30
 datetime==5.5
@@ -56,21 +56,20 @@ tqdm==4.66.5
 PyJWT==2.8.0
 cryptography==43.0.1
 
-# 🧑‍💻 Developer Tools (safe to keep)
+# 👨‍💻 Developer Tools (safe to keep)
 autopep8==2.3.2
 reindent==3.5.1
 
-# 🧬 Compatibility & Fix
+# 🧷 Compatibility & Fix
 setuptools==75.2.0
 packaging==24.1
 open3d==0.17.0
+prometheus-client==0.20.0
 
---extra-index-url https://download.pytorch.org/whl/cpu
+# 🧠 AI Models + Torch (CPU Safe)
 torch==2.3.1+cpu
 torchvision==0.18.1+cpu
 torchaudio==2.3.1+cpu
-prometheus-client==0.20.0
+--extra-index-url https://download.pytorch.org/whl/cpu
 
-# =====================================================
-# ✅ END OF REQUIREMENTS (Render Safe | UCVE v30)
-# =====================================================
+# ✅ END OF REQUIREMENTS (Render Safe | UCVE-X V30)
