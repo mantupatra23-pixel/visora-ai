@@ -1,0 +1,3 @@
+class AdminUsersTemplates {
+  const AdminUsersTemplates();
+}
