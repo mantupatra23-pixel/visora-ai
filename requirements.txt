@@ -1,8 +1,10 @@
-# 🚀 VISORA AI – UCVE X v30 (CloudSafe Backend Build)
-# Author: Aimantuvya & GPT-5
-# Description: Universal Cinematic Video Engine | Render Ready (GPU + CPU)
+# ============================================================
+# 🚀 VISORA AI — UCVE X v35 (Hybrid | Social Fountain Build)
+# 🧠 Author: Aimantuvya & GPT-5
+# 🌍 Description: Universal Cinematic Video Engine (Render Safe)
+# ============================================================
 
-# 🌿 Core Framework
+# 🌱 Core Framework
 fastapi==0.115.0
 uvicorn==0.30.6
 Flask==3.0.3
@@ -11,12 +13,12 @@ itsdangerous==2.2.0
 click==8.1.7
 waitress==3.0.0
 
-# 🧠 Database + ORM
+# 🧩 Database + ORM
 SQLAlchemy==2.0.25
 Flask-SQLAlchemy==3.1.1
 firebase-admin==6.5.0
 
-# 🎙️ AI + Voice Processing
+# 🧠 AI + Voice + Text Processing
 openai==1.12.0
 gTTS==2.5.1
 textblob==0.17.1
@@ -32,11 +34,11 @@ scipy==1.13.1
 moviepy==1.0.3
 imageio==2.34.0
 imageio-ffmpeg==0.5.1
-opencv-python==4.10.0.84
+opencv-python-headless==4.10.0.84
 Pillow==10.3.0
 numpy==1.26.4
 
-# 🧩 Background Task + Cache
+# 🧵 Background Task + Cache
 redis==5.0.4
 rq==1.16.2
 
@@ -45,7 +47,7 @@ boto3==1.34.19
 google-cloud-storage==2.16.0
 requests==2.32.3
 
-# 🪄 Utility + Logging + Time
+# 🕓 Utility + Logging + Time
 python-dotenv==1.0.1
 uuid==1.30
 datetime==5.5
@@ -60,16 +62,31 @@ cryptography==43.0.1
 autopep8==2.3.2
 reindent==3.5.1
 
-# 🧷 Compatibility & Fix
+# 🔧 Compatibility & Fix
 setuptools==75.2.0
 packaging==24.1
 open3d==0.17.0
 prometheus-client==0.20.0
 
-# 🧠 AI Models + Torch (CPU Safe)
+# ⚙️ AI Models + Torch (Hybrid GPU/CPU Safe)
 torch==2.3.1+cpu
 torchvision==0.18.1+cpu
 torchaudio==2.3.1+cpu
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-# ✅ END OF REQUIREMENTS (Render Safe | UCVE-X V30)
+# 🎙️ ElevenLabs Voice API (optional but recommended)
+elevenlabs==1.5.0
+
+# 🎨 Social Fountain Engine + Upload System
+opencv-python-headless==4.10.0.84
+Pillow==10.3.0
+requests==2.32.3
+python-multipart==0.0.9
+
+# 🦁 Text Generation + Thumbnail Metadata
+transformers==4.44.2
+huggingface-hub==0.23.0
+
+# ============================================================
+# ✅ END OF REQUIREMENTS (Render Safe | UCVE-X v35)
+# ============================================================

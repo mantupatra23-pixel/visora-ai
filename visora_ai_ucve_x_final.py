@@ -2,183 +2,130 @@
 # -*- coding: utf-8 -*-
 """
 visora_ai_ucve_x_final.py
-Visora AI — UCVE-X unified single-file backend (v1..v20 + Pro modules)
-- GPU/CPU autodetect (supports both)
-- Default style = "realistic"
-- ElevenLabs voice + fallbacks
-- Prompt optimizer, style transfer, temporal, lipsync stubs, SFX, memory, resume
-Author: dev-bro (Hindi)
+Visora AI UCVE-X (hybrid GPU/CPU compatible, v31 merged)
+Features:
+ - GPU autodetect (torch.cuda.is_available)
+ - ElevenLabs TTS primary, gTTS/pyttsx3 fallback
+ - Multi-language support for India (user-selectable)
+ - Prompt optimizer, render endpoints, advanced v31 pipeline
+ - SFX, lipsync, temporal stubs, upscale stub
+ - Payment & Firebase hooks (stubs)
+ - Single-file drop-in for Render or local
+Author: prepared for you
 """
 
-import os, re, uuid, hmac, hashlib, logging, json, time
+import os
+import re
+import uuid
+import json
+import logging
+import shutil
+import time
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple, Any
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
-from pydantic import BaseModel
+from typing import List, Optional, Dict
+from fastapi import FastAPI, Form, UploadFile, File, BackgroundTasks, HTTPException
 
-# -------------------------
-# Logging
-# -------------------------
+# Basic logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-# -------------------------
-# Optional heavy imports (graceful)
-# -------------------------
-NP_AVAILABLE = False
-CV2_AVAILABLE = False
+# ---------- Optional imports (graceful) ----------
 PIL_AVAILABLE = False
 MOVIEPY_AVAILABLE = False
 TORCH_AVAILABLE = False
 DIFFUSERS_AVAILABLE = False
-OPEN3D_AVAILABLE = False
-PYDUB_AVAILABLE = False
-LIBROSA_AVAILABLE = False
-REDIS_AVAILABLE = False
-RQ_AVAILABLE = False
-PROM_AVAILABLE = False
-TEXTBLOB_AVAILABLE = False
 REQUESTS_AVAILABLE = False
-
-try:
-    import numpy as np
-    NP_AVAILABLE = True
-except Exception as e:
-    logging.info("numpy missing: %s", e)
-
-try:
-    import cv2
-    CV2_AVAILABLE = True
-except Exception as e:
-    logging.info("cv2 missing: %s", e)
+PYDUB_AVAILABLE = False
 
 try:
     from PIL import Image, ImageDraw, ImageFont
     PIL_AVAILABLE = True
 except Exception as e:
-    logging.info("PIL missing: %s", e)
+    logging.info("PIL not available: %s", e)
 
 try:
-    from moviepy.editor import ImageSequenceClip, AudioFileClip, CompositeVideoClip
+    from moviepy.editor import ImageSequenceClip, AudioFileClip
     MOVIEPY_AVAILABLE = True
 except Exception as e:
-    logging.info("moviepy missing: %s", e)
+    logging.info("moviepy not available: %s", e)
 
 try:
     import torch
     TORCH_AVAILABLE = True
 except Exception as e:
-    logging.info("torch missing: %s", e)
+    logging.info("torch not available: %s", e)
 
 try:
     from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
     DIFFUSERS_AVAILABLE = True
 except Exception as e:
-    logging.info("diffusers missing: %s", e)
-
-try:
-    import open3d as o3d
-    OPEN3D_AVAILABLE = True
-except Exception as e:
-    logging.info("open3d missing: %s", e)
-
-try:
-    from pydub import AudioSegment
-    PYDUB_AVAILABLE = True
-except Exception as e:
-    logging.info("pydub missing: %s", e)
-
-try:
-    import librosa
-    LIBROSA_AVAILABLE = True
-except Exception as e:
-    logging.info("librosa missing: %s", e)
-
-try:
-    import redis
-    REDIS_AVAILABLE = True
-    from rq import Queue, Worker, Connection
-    RQ_AVAILABLE = True
-except Exception as e:
-    logging.info("redis/rq missing: %s", e)
-
-try:
-    from prometheus_client import Counter, generate_latest
-    PROM_AVAILABLE = True
-except Exception as e:
-    logging.info("prometheus_client missing: %s", e)
-
-try:
-    from textblob import TextBlob
-    TEXTBLOB_AVAILABLE = True
-except Exception as e:
-    logging.info("textblob missing: %s", e)
+    logging.info("diffusers not available: %s", e)
 
 try:
     import requests
     REQUESTS_AVAILABLE = True
 except Exception as e:
-    logging.info("requests missing: %s", e)
+    logging.info("requests not available: %s", e)
 
-# Payments libs (optional)
 try:
-    import stripe
-except Exception:
-    stripe = None
+    from pydub import AudioSegment
+    PYDUB_AVAILABLE = True
+except Exception as e:
+    logging.info("pydub not available: %s", e)
+
+# TTS optional libs (gTTS/pyttsx3)
+GTTs_AVAILABLE = False
+PYTTSX3_AVAILABLE = False
 try:
-    import razorpay
+    from gtts import gTTS
+    GTTs_AVAILABLE = True
 except Exception:
-    razorpay = None
+    GTTs_AVAILABLE = False
 
-# -------------------------
-# App init
-# -------------------------
-app = FastAPI(title="Visora AI UCVE-X", version="ucve_x")
+try:
+    import pyttsx3
+    PYTTSX3_AVAILABLE = True
+except Exception:
+    PYTTSX3_AVAILABLE = False
 
-# -------------------------
-# Global config / env
-# -------------------------
+# ---------- App init & config ----------
+app = FastAPI(title="Visora AI UCVE-X", version="v31")
+
 DOMAIN = os.getenv("DOMAIN", "http://127.0.0.1:8000")
 HUGGINGFACE_HUB_TOKEN = os.getenv("HUGGINGFACE_HUB_TOKEN")
 ELEVEN_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 ELEVEN_VOICE_ID = os.getenv("ELEVEN_VOICE_ID", None)
-TTS_PROVIDER = os.getenv("TTS_PROVIDER", "elevenlabs")  # default to elevenlabs
+TTS_PROVIDER = os.getenv("TTS_PROVIDER", "elevenlabs")  # elevenlabs / gtts / pyttsx3
 RENDER_WATERMARK = os.getenv("RENDER_WATERMARK", "Visora AI")
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
-RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
-REDIS_URL = os.getenv("REDIS_URL")
-USE_RQ = False
-rq_queue = None
-if REDIS_AVAILABLE and RQ_AVAILABLE and REDIS_URL:
-    try:
-        redis_conn = redis.from_url(REDIS_URL)
-        rq_queue = Queue("visora_jobs", connection=redis_conn)
-        USE_RQ = True
-    except Exception as e:
-        logging.exception("Redis init failed")
+DEFAULT_STYLE = os.getenv("DEFAULT_STYLE", "realistic")
 
-PROM_COUNTER = Counter("ucve_jobs_total", "Total UCVE jobs") if PROM_AVAILABLE else None
+# Supported Indian languages (language code for gTTS / hint for ElevenLabs)
+SUPPORTED_LANGUAGES = {
+    "hi": "Hindi",
+    "en": "English",
+    "bn": "Bengali",
+    "ta": "Tamil",
+    "te": "Telugu",
+    "mr": "Marathi",
+    "gu": "Gujarati",
+    "kn": "Kannada",
+    "ml": "Malayalam",
+    "pa": "Punjabi",
+    "or": "Odia",
+    "as": "Assamese"
+}
 
-# default style mapping (1..4) — user asked default = 2 -> realistic
-STYLE_MAP = {1: "cartoon", 2: "realistic", 3: "anime", 4: "cinematic"}
-DEFAULT_STYLE = STYLE_MAP.get(2, "realistic")
-
-# -------------------------
-# Utilities
-# -------------------------
+# ---------------- Utility helpers ----------------
 def ensure_dir(path: str):
     d = os.path.dirname(path)
     if d and not os.path.exists(d):
         os.makedirs(d, exist_ok=True)
 
-def save_temp_file(upload: UploadFile, prefix: str = "tmp") -> str:
-    name = os.path.basename(upload.filename)
-    tmp_path = f"/tmp/{prefix}_{uuid.uuid4().hex[:8]}_{name}"
-    ensure_dir(tmp_path)
-    with open(tmp_path, "wb") as fh:
+def save_upload_file(upload: UploadFile, prefix="upload") -> str:
+    ensure_dir("/tmp")
+    path = f"/tmp/{prefix}_{uuid.uuid4().hex[:8]}_{upload.filename}"
+    with open(path, "wb") as fh:
         fh.write(upload.file.read())
-    return tmp_path
+    return path
 
 def _watermark_image_pil(img_path: str, out_path: str, text: str = RENDER_WATERMARK):
     if not PIL_AVAILABLE:
@@ -187,7 +134,7 @@ def _watermark_image_pil(img_path: str, out_path: str, text: str = RENDER_WATERM
         im = Image.open(img_path).convert("RGBA")
         draw = ImageDraw.Draw(im)
         try:
-            font = ImageFont.truetype("arial.ttf", 20)
+            font = ImageFont.truetype("arial.ttf", 18)
         except Exception:
             font = ImageFont.load_default()
         w, h = im.size
@@ -200,131 +147,149 @@ def _watermark_image_pil(img_path: str, out_path: str, text: str = RENDER_WATERM
     except Exception:
         return img_path
 
-def _get_torch_device_and_dtype():
+# Torch device helper
+def _get_device():
     if TORCH_AVAILABLE and torch.cuda.is_available():
-        return "cuda", torch.float16
-    return "cpu", torch.float32
+        logging.info("Using CUDA device")
+        return "cuda"
+    logging.info("Using CPU device")
+    return "cpu"
 
-# -------------------------
-# Simple in-memory memory store (character memory) — persisted to disk
-# -------------------------
-MEMORY_FILE = "/tmp/visora_character_memory.json"
-def _load_memory():
-    if os.path.exists(MEMORY_FILE):
-        try:
-            return json.load(open(MEMORY_FILE, "r", encoding="utf-8"))
-        except Exception:
-            return {}
-    return {}
+# Simple job checkpoint
+JOBS_DIR = "/tmp/visora_jobs"
+ensure_dir(JOBS_DIR)
+def save_job(job: dict):
+    path = os.path.join(JOBS_DIR, f"{job['id']}.json")
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(job, fh, ensure_ascii=False, indent=2)
+def load_job(job_id: str) -> Optional[dict]:
+    path = os.path.join(JOBS_DIR, f"{job_id}.json")
+    if os.path.exists(path):
+        return json.load(open(path, "r", encoding="utf-8"))
+    return None
 
-def _save_memory(mem: dict):
-    try:
-        with open(MEMORY_FILE, "w", encoding="utf-8") as fh:
-            json.dump(mem, fh, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
-
-# -------------------------
-# Prompt Optimizer (basic rule-based + optional HF call stub)
-# -------------------------
+# ---------------- Prompt optimizer ----------------
 def prompt_optimizer_simple(prompt: str, style: str = DEFAULT_STYLE) -> str:
-    # Expand short prompt into cinematic detailed prompt (rules)
-    base = prompt.strip()
-    # sample templates per style
     templates = {
-        "cartoon": "A bright, colorful cartoon illustration of {p}, exaggerated expressions, smooth lines, cel-shaded, high detail",
-        "realistic": "A highly detailed photorealistic scene of {p}, cinematic lighting, shallow depth of field, realistic textures",
-        "anime": "An anime-style scene of {p}, vibrant colors, dramatic lighting, soft gradients, high detail",
-        "cinematic": "A cinematic, filmic shot of {p}, wide-angle, dramatic lighting, film grain, high contrast"
+        "cartoon": "A bright, colorful cartoon illustration of {p}, cel-shaded, characterful",
+        "realistic": "A photorealistic cinematic scene of {p}, ultra-detailed textures, cinematic lighting, shallow depth of field",
+        "anime": "An anime scene of {p}, clean lines, expressive lighting, soft gradients",
+        "cinematic": "A cinematic film-frame of {p}, wide-angle, dramatic lighting, film grain"
     }
     tpl = templates.get(style, templates["realistic"])
-    expanded = tpl.format(p=base) + ", ultra-detailed, high-resolution"
-    # optional: further expand with a transformer/HF API (skip if token missing)
-    if HUGGINGFACE_HUB_TOKEN and REQUESTS_AVAILABLE:
-        # stub: call an external prompt-expander if you have one (not implemented)
-        pass
+    expanded = tpl.format(p=prompt.strip()) + ", ultra detailed, high quality"
     return expanded
 
-# -------------------------
-# Style Transfer: LUT-like filter (teal-orange simple) + stub for ControlNet
-# -------------------------
-def style_transfer_apply(image_path: str, style: str = "realistic") -> Optional[str]:
-    if not (PIL_AVAILABLE or CV2_AVAILABLE):
+# ---------------- TTS: ElevenLabs + fallback ----------------
+def _elevenlabs_synthesize(text: str, voice_id: Optional[str]=None, out_path: str="/tmp/visora_eleven_tts.mp3"):
+    if not REQUESTS_AVAILABLE or not ELEVEN_API_KEY:
         return None
-    out = image_path.replace(".png", f"_{style}.png")
+    vid = voice_id or ELEVEN_VOICE_ID
+    if not vid:
+        # try to fetch voice list and pick first
+        try:
+            r = requests.get("https://api.elevenlabs.io/v1/voices", headers={"xi-api-key": ELEVEN_API_KEY}, timeout=15)
+            if r.status_code == 200:
+                data = r.json()
+                voices = data.get("voices", [])
+                if voices:
+                    vid = voices[0].get("voice_id") or voices[0].get("id")
+        except Exception:
+            vid = None
+    if not vid:
+        return None
     try:
-        if style == "realistic":
-            # do nothing — SD already realistic
-            return image_path
-        if style == "cartoon" and PIL_AVAILABLE:
-            im = Image.open(image_path).convert("RGB")
-            # posterize-like effect
-            im_small = im.resize((im.width//2, im.height//2)).resize(im.size, Image.NEAREST)
-            im_small.save(out)
-            return out
-        if style == "anime" and CV2_AVAILABLE:
-            img = cv2.imread(image_path)
-            # bilateral filter + edge
-            img_color = cv2.bilateralFilter(img, d=9, sigmaColor=75, sigmaSpace=75)
-            edges = cv2.Canny(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), 100, 200)
-            edges_col = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-            anime = cv2.bitwise_and(img_color, cv2.bitwise_not(edges_col))
-            cv2.imwrite(out, anime)
-            return out
-        # cinematic -> apply LUT stub
-        if style == "cinematic" and CV2_AVAILABLE:
-            img = cv2.imread(image_path).astype(float)/255.0
-            r = img[:,:,2]; g = img[:,:,1]; b = img[:,:,0]
-            r = np.clip(r*1.05 + 0.02, 0, 1)
-            b = np.clip(b*0.9, 0, 1)
-            out_img = (np.stack([b,g,r], axis=-1)*255).astype(np.uint8)
-            cv2.imwrite(out, out_img)
-            return out
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{vid}"
+        headers = {"xi-api-key": ELEVEN_API_KEY, "Content-Type": "application/json"}
+        payload = {"text": text}
+        r = requests.post(url, headers=headers, json=payload, timeout=60)
+        if r.status_code == 200:
+            with open(out_path, "wb") as fh:
+                fh.write(r.content)
+            return out_path
+        else:
+            logging.error("ElevenLabs TTS failed: %s %s", r.status_code, r.text)
+            return None
     except Exception:
-        return image_path
-    return image_path
+        logging.exception("ElevenLabs synth error")
+        return None
 
-# -------------------------
-# Temporal consistency stub (anti-flicker) — optical flow & frame blend placeholder
-# -------------------------
+def _generate_tts(text: str, lang: str = "hi", out_path: str = "/tmp/visora_tts.mp3"):
+    # prefer ElevenLabs (if configured)
+    if TTS_PROVIDER == "elevenlabs" and ELEVEN_API_KEY:
+        out = _elevenlabs_synthesize(text, out_path=out_path)
+        if out:
+            return out
+    # fallback gTTS
+    if GTTs_AVAILABLE:
+        try:
+            tts = gTTS(text=text, lang=lang)
+            tts.save(out_path)
+            return out_path
+        except Exception:
+            pass
+    # fallback pyttsx3 offline
+    if PYTTSX3_AVAILABLE:
+        try:
+            engine = pyttsx3.init()
+            engine.save_to_file(text, out_path)
+            engine.runAndWait()
+            return out_path
+        except Exception:
+            pass
+    return None
+
+# ---------------- Diffusers frame generator (starter) ----------------
+def _load_sd_pipeline(model_id: str = "runwayml/stable-diffusion-v1-5"):
+    if not DIFFUSERS_AVAILABLE or not TORCH_AVAILABLE:
+        raise RuntimeError("diffusers/torch not installed")
+    device = _get_device()
+    dtype = torch.float16 if device == "cuda" else torch.float32
+    pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=dtype, use_auth_token=HUGGINGFACE_HUB_TOKEN)
+    pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+    pipe.enable_attention_slicing()
+    pipe = pipe.to(device)
+    return pipe
+
+def _synthesize_frames(pipe, prompt: str, num_frames: int=24, width: int=512, height: int=512, guidance_scale: float=7.5, seed: Optional[int]=None):
+    out = []
+    try:
+        device = _get_device()
+        gen = torch.Generator(device=device if device=="cuda" else "cpu")
+        gen = gen.manual_seed(seed or int.from_bytes(os.urandom(2), "big"))
+        for i in range(num_frames):
+            frame_prompt = f"{prompt}, cinematic, frame {i}"
+            with torch.autocast(device) if (TORCH_AVAILABLE and device=="cuda") else torch.cpu.amp.autocast(enabled=False):
+                res = pipe(frame_prompt, height=height, width=width, guidance_scale=guidance_scale, generator=gen)
+                img = res.images[0]
+            p = f"/tmp/visora_frame_{uuid.uuid4().hex[:6]}_{i}.png"
+            img.save(p)
+            wm = p.replace(".png", "_wm.png")
+            _watermark_image_pil(p, wm)
+            out.append(wm)
+    except Exception as e:
+        logging.exception("Frame synthesis failed")
+    return out
+
+# ---------------- Temporal smoothing (stub) ----------------
 def temporal_smooth_frames(frames: List[str]) -> List[str]:
-    # Placeholder: for now do nothing or simple frame crossfade copies
-    # Proper implementation: use video-diffusion or flow-guided stabilization
-    if not frames or len(frames) < 2:
-        return frames
-    smoothed = []
-    for i, f in enumerate(frames):
-        smoothed.append(f)
-    return smoothed
+    # placeholder: return same frames; in production integrate optical-flow / temporal models
+    return frames
 
-# -------------------------
-# LipSync stub (Wav2Lip integration placeholder)
-# -------------------------
-def lipsync_audio_to_video(audio_path: str, reference_frame: Optional[str] = None) -> Optional[str]:
-    # Real integration: run Wav2Lip model to generate video; here return audio path as stub
-    return audio_path
-
-# -------------------------
-# SFX Engine (simple rule-based selector + mix)
-# -------------------------
+# ---------------- SFX selection & mix ----------------
 SFX_BANK = {
-    "running": "sfx/running_loop.mp3",
-    "rain": "sfx/rain_loop.mp3",
-    "explosion": "sfx/explosion_short.mp3",
-    "wind": "sfx/wind_ambience.mp3",
+    "running": None,
+    "rain": None,
+    "explosion": None,
+    "wind": None,
     "default": None
 }
 
-def select_sfx_for_prompt(prompt: str) -> Optional[str]:
+def select_sfx(prompt: str) -> Optional[str]:
     p = prompt.lower()
-    if "run" in p or "running" in p:
-        return SFX_BANK.get("running")
-    if "rain" in p or "storm" in p:
-        return SFX_BANK.get("rain")
-    if "explode" in p or "bomb" in p:
-        return SFX_BANK.get("explosion")
-    if "wind" in p or "desert" in p:
-        return SFX_BANK.get("wind")
+    if "run" in p or "running" in p: return SFX_BANK.get("running")
+    if "rain" in p or "storm" in p: return SFX_BANK.get("rain")
+    if "explode" in p or "bomb" in p: return SFX_BANK.get("explosion")
     return SFX_BANK.get("default")
 
 def mix_audio_tracks(tts_path: Optional[str], sfx_path: Optional[str], duration_sec: int, out_path: str):
@@ -346,601 +311,1048 @@ def mix_audio_tracks(tts_path: Optional[str], sfx_path: Optional[str], duration_
         else:
             return tts_path
     except Exception:
+        logging.exception("mix audio failed")
         return tts_path
 
-# -------------------------
-# ElevenLabs TTS via REST (requests)
-# -------------------------
-def _elevenlabs_synthesize(text: str, voice_id: Optional[str] = None, out_path: str = "/tmp/ucve_eleven_tts.mp3"):
-    if not REQUESTS_AVAILABLE:
-        logging.info("requests missing for ElevenLabs")
-        return None
-    api_key = ELEVEN_API_KEY
-    if not api_key:
-        logging.info("ELEVENLABS_API_KEY not set")
-        return None
-    vid = voice_id or ELEVEN_VOICE_ID
-    if not vid:
-        # try fetch first voice
-        try:
-            resp = requests.get("https://api.elevenlabs.io/v1/voices", headers={"xi-api-key": api_key}, timeout=15)
-            if resp.status_code == 200:
-                voices = resp.json().get("voices", [])
-                if voices:
-                    vid = voices[0].get("voice_id") or voices[0].get("id")
-        except Exception:
-            vid = None
-    if not vid:
-        logging.info("No ElevenLabs voice id found")
-        return None
+# ---------------- Lipsync stub ----------------
+def lipsync_stub(audio_path: str, reference_frame: Optional[str]=None):
+    # In production replace with Wav2Lip integration (ethical use only)
+    return audio_path
+
+# ---------------- Upscale stub ----------------
+def upscale_stub(video_path: str, scale: int=2) -> str:
+    # placeholder returns same path; implement Real-ESRGAN pipeline to upscale
+    out = video_path.replace(".mp4", f"_up{scale}x.mp4")
     try:
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{vid}"
-        headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
-        payload = {"text": text}
-        r = requests.post(url, headers=headers, json=payload, timeout=60)
-        if r.status_code == 200:
-            with open(out_path, "wb") as fh:
-                fh.write(r.content)
-            return out_path
-        else:
-            logging.error("ElevenLabs synth failed: %s %s", r.status_code, r.text)
-            return None
-    except Exception:
-        logging.exception("elevenlabs synth error")
-        return None
-
-# fallback TTS (gTTS or pyttsx3)
-def _generate_tts_audio(text: str, lang: str = "hi", out_path: str = "/tmp/ucve_tts.mp3"):
-    # prefer ElevenLabs
-    if TTS_PROVIDER == "elevenlabs" and ELEVEN_API_KEY:
-        out = _elevenlabs_synthesize(text, out_path=out_path)
-        if out:
-            return out
-    try:
-        from gtts import gTTS
-        tts = gTTS(text=text, lang=lang)
-        tts.save(out_path)
-        return out_path
-    except Exception:
-        pass
-    try:
-        import pyttsx3
-        engine = pyttsx3.init()
-        engine.save_to_file(text, out_path)
-        engine.runAndWait()
-        return out_path
-    except Exception:
-        pass
-    return None
-
-# -------------------------
-# Diffusers SD pipeline helpers (GPU/CPU ready)
-# -------------------------
-def _load_sd_pipeline(model_id: str = "runwayml/stable-diffusion-v1-5", hf_token: Optional[str] = None):
-    if not DIFFUSERS_AVAILABLE or not TORCH_AVAILABLE:
-        raise RuntimeError("diffusers/torch not installed")
-    device, dtype = _get_torch_device_and_dtype()
-    pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=dtype, use_auth_token=hf_token)
-    pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
-    pipe.enable_attention_slicing()
-    pipe = pipe.to(device)
-    return pipe
-
-def _synthesize_frames_from_prompt(pipe, prompt: str, num_frames: int = 24, width: int = 512, height: int = 512, guidance_scale: float = 7.5, seed: Optional[int]=None):
-    out_files = []
-    if seed is None:
-        seed = int.from_bytes(os.urandom(2), "big")
-    device = next(pipe.unet.parameters()).device
-    generator = torch.Generator(device=device).manual_seed(seed)
-    for i in range(num_frames):
-        frame_prompt = f"{prompt}, frame {i}, high detail"
-        with torch.autocast(device.type) if TORCH_AVAILABLE and device.type == "cuda" else torch.cpu.amp.autocast(enabled=False):
-            res = pipe(frame_prompt, height=height, width=width, guidance_scale=guidance_scale, generator=generator)
-            image = res.images[0]
-        out_path = f"/tmp/ucve_frame_{uuid.uuid4().hex[:6]}_{i}.png"
-        image.save(out_path)
-        wm = out_path.replace(".png","_wm.png")
-        _watermark_image_pil(out_path, wm)
-        out_files.append(wm)
-    return out_files
-
-# -------------------------
-# Job checkpoint / resume stub
-# -------------------------
-JOB_CHECKPOINT_DIR = "/tmp/visora_jobs"
-ensure_dir(JOB_CHECKPOINT_DIR)
-def save_job_checkpoint(job_id: str, data: dict):
-    try:
-        path = os.path.join(JOB_CHECKPOINT_DIR, f"{job_id}.json")
-        with open(path, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
-
-def load_job_checkpoint(job_id: str) -> Optional[dict]:
-    path = os.path.join(JOB_CHECKPOINT_DIR, f"{job_id}.json")
-    if os.path.exists(path):
-        try:
-            return json.load(open(path, "r", encoding="utf-8"))
-        except Exception:
-            return None
-    return None
-
-# -------------------------
-# Pydantic models
-# -------------------------
-class ScriptIn(BaseModel):
-    script_text: str
-    style_id: Optional[int] = 2    # default 2 -> realistic
-    duration_sec: Optional[int] = 6
-    fps: Optional[int] = 24
-    width: Optional[int] = 512
-    height: Optional[int] = 512
-
-class RenderRequestOut(BaseModel):
-    job_id: str
-    status: str
-    message: Optional[str] = None
-    video: Optional[str] = None
-
-# =================================================
-# Core endpoints (v1..v10) — same as before (concise)
-# =================================================
-@app.post("/v1/analyze_emotion")
-def api_analyze_emotion(payload: ScriptIn):
-    try:
-        mood = analyze_emotion(payload.script_text)
-        return {"status":"success","mood":mood}
-    except Exception as e:
-        logging.exception("emotion failed")
-        raise HTTPException(status_code=500, detail=str(e))
-
-def analyze_emotion(script_text: str) -> str:
-    try:
-        if TEXTBLOB_AVAILABLE:
-            blob = TextBlob(script_text)
-            polarity = blob.sentiment.polarity
-            if polarity > 0.3: return "happy"
-            if polarity < -0.3: return "sad"
-            return "neutral"
-        s = script_text.lower()
-        if any(w in s for w in ["khushi","happy","shukriya"]): return "happy"
-        if any(w in s for w in ["dukh","sad","tragic"]): return "sad"
-        return "neutral"
-    except Exception:
-        return "neutral"
-
-@app.post("/v2/generate_subtitles")
-def api_generate_subtitles(payload: ScriptIn):
-    try:
-        return {"status":"success","subtitles": generate_subtitles(payload.script_text, "hi", 3.5)}
-    except Exception as e:
-        logging.exception("subs failed")
-        raise HTTPException(status_code=500, detail=str(e))
-
-def generate_subtitles(script_text: str, lang_target: str = "hi", dur_per_line: float = 3.5):
-    lines = [ln for ln in script_text.strip().splitlines() if ln.strip()]
-    subs=[]
-    st=0.0
-    for ln in lines:
-        et=st+dur_per_line
-        subs.append({"text":ln.strip(),"start":round(st,2),"end":round(et,2)})
-        st=et
-    return subs
-
-@app.post("/v3/detect_dialogues")
-def api_detect_dialogues(payload: ScriptIn):
-    try:
-        return {"status":"success","dialogues": detect_dialogues(payload.script_text)}
-    except Exception as e:
-        logging.exception("detect failed")
-        raise HTTPException(status_code=500, detail=str(e))
-
-def detect_dialogues(script_text: str):
-    dialogues=[]
-    for line in script_text.splitlines():
-        line=line.strip()
-        if not line: continue
-        m=re.match(r"^([A-Za-z0-9_ ]+):\s*(.+)$", line)
-        if m:
-            dialogues.append({"speaker":m.group(1).strip(),"text":m.group(2).strip()})
-        else:
-            dialogues.append({"speaker":"narrator","text":line})
-    return dialogues
-
-@app.post("/v4/translate_caption")
-def api_translate_caption(text: str = Form(...), target_lang: str = Form("hi")):
-    return {"status":"success","translated":text,"lang":target_lang}
-
-@app.post("/v5/compose_music")
-def api_compose_music(mood: str = Form(...), duration: float = Form(20.0)):
-    try:
-        out=compose_emotion_music(mood,duration)
-        return {"status":"success","file":out}
-    except Exception as e:
-        logging.exception("compose failed")
-        raise HTTPException(status_code=500, detail=str(e))
-
-def compose_emotion_music(mood: str, duration: float = 20.0, out_path: str = "/tmp/bg_music.mp3"):
-    if not PYDUB_AVAILABLE:
-        logging.info("pydub not installed")
-        return None
-    try:
-        pool = {"happy":["forest_birds.mp3"],"sad":["rain_ambience.mp3"],"neutral":["daylight_soft.mp3"]}.get(mood,["daylight_soft.mp3"])
-        found=None
-        for f in pool:
-            if os.path.exists(f):
-                found=f; break
-        if found:
-            seg=AudioSegment.from_file(found)
-            ms=int(duration*1000)
-            out=seg*(ms//len(seg)+1)
-            out=out[:ms]
-            out.export(out_path,format="mp3")
-            return out_path
-        else:
-            AudioSegment.silent(duration=int(duration*1000)).export(out_path,format="mp3")
-            return out_path
-    except Exception:
-        return None
-
-@app.post("/v6/upload_to_firebase")
-def api_upload_to_firebase(file: UploadFile = File(...), remote_path: str = Form(...)):
-    ok=init_firebase_if_needed()
-    if not ok:
-        return {"status":"error","message":"firebase not configured"}
-    tmp=save_temp_file(file,"firebase")
-    url=upload_to_firebase(tmp, remote_path)
-    return {"status":"success","url":url}
-
-def init_firebase_if_needed():
-    global FIREBASE_AVAILABLE, FIREBASE_BUCKET, FIREBASE_DB
-    try:
-        import firebase_admin
-        from firebase_admin import credentials, storage, db as firebase_db
-        FIREBASE_AVAILABLE=True
-    except Exception as e:
-        logging.info("firebase missing: %s", e)
-        FIREBASE_AVAILABLE=False
-        return False
-    try:
-        if not firebase_admin._apps:
-            cred_path=os.getenv("FIREBASE_CRED_PATH")
-            bucket_name=os.getenv("FIREBASE_BUCKET")
-            db_url=os.getenv("FIREBASE_DB_URL")
-            if not cred_path or not os.path.exists(cred_path):
-                logging.warning("firebase cred missing")
-                return False
-            cred=credentials.Certificate(cred_path)
-            firebase_admin.initialize_app(cred, {"storageBucket":bucket_name, "databaseURL":db_url})
-        from firebase_admin import storage, db as firebase_db
-        FIREBASE_BUCKET = storage.bucket()
-        FIREBASE_DB = firebase_db
-        return True
-    except Exception:
-        return False
-
-def upload_to_firebase(local_path, remote_path):
-    global FIREBASE_BUCKET
-    try:
-        blob = FIREBASE_BUCKET.blob(remote_path)
-        blob.upload_from_filename(local_path)
-        blob.make_public()
-        return blob.public_url
-    except Exception:
-        return None
-
-@app.post("/v7/generate_actor_image")
-def api_generate_actor_image(actor_type: str = Form("male"), text_overlay: str = Form("")):
-    try:
-        out=generate_actor_image(actor_type, text_overlay)
-        return {"status":"success","file":out}
-    except Exception as e:
-        logging.exception("actor failed"); raise HTTPException(status_code=500, detail=str(e))
-
-def generate_actor_image(actor_type="male", text=""):
-    out=f"/tmp/actor_{actor_type}_{uuid.uuid4().hex[:6]}.png"
-    if not PIL_AVAILABLE:
-        return None
-    try:
-        base=(f"actors/{actor_type}_default.png")
-        if os.path.exists(base):
-            img=Image.open(base).convert("RGBA")
-        else:
-            img=Image.new("RGBA",(512,512),(80,80,120,255))
-        draw=ImageDraw.Draw(img)
-        try: font=ImageFont.load_default()
-        except: font=None
-        draw.text((20, img.height-60), text or actor_type.title(), fill=(255,255,255), font=font)
-        img.save(out)
+        shutil.copy(video_path, out)
         return out
     except Exception:
-        return None
+        return video_path
 
-@app.post("/v8/plan_shots")
-def api_plan_shots(payload: ScriptIn):
-    return {"status":"success","shots": plan_camera_shots(payload.script_text)}
+# ---------------- Memory store ----------------
+MEMORY_FILE = "/tmp/visora_memory.json"
+def _load_memory():
+    if os.path.exists(MEMORY_FILE):
+        return json.load(open(MEMORY_FILE, "r", encoding="utf-8"))
+    return {"history":[]}
+def _save_memory(mem: dict):
+    with open(MEMORY_FILE, "w", encoding="utf-8") as fh:
+        json.dump(mem, fh, ensure_ascii=False, indent=2)
 
-def plan_camera_shots(script_text):
-    txt=script_text.lower()
-    shots=[{"type":"wide","duration":2.5,"intensity":0.2}]
-    sents=re.split(r'[\.!\?]\s*', script_text.strip())
-    for s in sents:
-        if not s.strip(): continue
-        t="closeup" if len(s.split())<6 else "medium"
-        dur=min(4.5, max(1.5, len(s.split())*0.3))
-        shots.append({"type":t,"duration":round(dur,2),"intensity":0.3})
-    if any(k in txt for k in ["finally","end","conclusion","reward"]):
-        shots.append({"type":"dramatic","duration":3.0,"intensity":0.8})
-    return shots
+# ---------------- API Endpoints ----------------
 
-@app.post("/v9/collab_merge")
-def api_collab_merge(payload: dict):
-    merged="\n".join(payload.get("script_versions",[]))
-    return {"status":"merged","merged_script":merged}
+@app.get("/")
+def root():
+    return {"message": "Visora AI UCVE-X running", "time": datetime.utcnow().isoformat()}
 
-@app.post("/v10/dashboard_metrics")
-def api_dashboard_metrics(records: List[Dict]):
-    return {"status":"success","metrics": compute_dashboard_metrics(records)}
+@app.get("/health")
+def health():
+    return {"status":"ok", "time": datetime.utcnow().isoformat()}
 
-def compute_dashboard_metrics(user_videos):
-    videos=len(user_videos)
-    succ=sum(1 for v in user_videos if v.get("status")=="done")
-    fail=sum(1 for v in user_videos if v.get("status")=="failed")
-    total=sum(v.get("credits",0) for v in user_videos)
-    rate=round((succ/videos)*100,2) if videos else 0.0
-    return {"videos":videos,"success_jobs":succ,"failed_jobs":fail,"total_credits":total,"success_rate":rate}
+@app.get("/languages")
+def languages():
+    """Return supported Indian languages"""
+    return {"supported_languages": SUPPORTED_LANGUAGES}
 
-# =================================================
-# PRO modules: Prompt optimizer, style transfer, temporal, lipsync, sfx, memory, resume
-# =================================================
-
-# Admin endpoints for Job control
-JOBS_DIR = "/tmp/visora_jobs_full"
-ensure_dir(JOBS_DIR)
-
-@app.post("/pro/render_request", response_model=RenderRequestOut)
-def pro_render_request(script_text: str = Form(...), style_id: int = Form(2),
-                       duration_sec: int = Form(6), fps: int = Form(24),
-                       width: int = Form(512), height: int = Form(512),
+# Simple render request (starter) - quick path
+@app.post("/pro/render_request")
+def pro_render_request(script_text: str = Form(...),
+                       style: str = Form(DEFAULT_STYLE),
+                       duration_sec: int = Form(6),
+                       fps: int = Form(12),
+                       width: int = Form(512),
+                       height: int = Form(512),
+                       lang: str = Form("hi"),
                        tts_text: Optional[str] = Form(None),
                        background_tasks: BackgroundTasks = None):
-    """Create render job: this enqueues or runs background render chain (prompt optimize → frames → temporal → audio merge → final)"""
+    """
+    Basic render request:
+      - optimize prompt
+      - generate frames (diffusers if available else placeholder)
+      - generate TTS in requested lang
+      - mix SFX
+      - compose video (MoviePy)
+    """
+  # APPLY PHOTO OVERLAYS IF MAPPING EXISTS
+    try:
+        _apply_character_photos_to_video(job_id, job.get("mapping", {}))
+        # then apply motion
+        apply_motion_to_dialogues(job_id, job.get("mapping", {}))
+    except Exception as e:
+        logging.info(f"No mapping/photos to apply: {e}")
+
     job_id = f"job_{uuid.uuid4().hex[:8]}"
-    job = {
-        "id": job_id,
-        "status": "queued",
-        "created": datetime.utcnow().isoformat(),
-        "script": script_text,
-        "style": STYLE_MAP.get(style_id, DEFAULT_STYLE),
-        "duration_sec": duration_sec,
-        "fps": fps,
-        "width": width,
-        "height": height,
-        "tts_text": tts_text
-    }
-    save_job_checkpoint(job_id, job)
-    # enqueue or run background task
-    if USE_RQ and rq_queue:
-        rq_queue.enqueue(_pro_render_worker, job_id)
-        job["status"]="enqueued"
+    job = {"id": job_id, "status": "queued", "script": script_text, "style": style,
+           "duration_sec": duration_sec, "fps": fps, "width": width, "height": height, "lang": lang}
+    save_job(job)
+    # process inline or background
+    if background_tasks:
+        background_tasks.add_task(_render_worker, job_id, tts_text)
+        job["status"]="background_started"
     else:
-        # use background tasks immediate
-        if background_tasks:
-            background_tasks.add_task(_pro_render_worker, job_id)
-            job["status"]="background_started"
-        else:
-            # run inline (blocking)
-            _pro_render_worker(job_id)
-            job = load_job_checkpoint(job_id) or job
-    save_job_checkpoint(job_id, job)
-    return RenderRequestOut(job_id=job_id, status=job["status"], message="Job queued/started")
+        _render_worker(job_id, tts_text)
+    save_job(job)
+    return {"job_id": job_id, "status": job["status"], "message": "queued/started"}
 
-@app.get("/pro/job_status/{job_id}")
-def pro_job_status(job_id: str):
-    job = load_job_checkpoint(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return job
-
-@app.post("/pro/cancel_job/{job_id}")
-def pro_cancel_job(job_id: str):
-    # simple cancel flag
-    job = load_job_checkpoint(job_id)
-    if not job:
-        raise HTTPException(status_code=404)
-    job["status"]="cancelled"
-    save_job_checkpoint(job_id, job)
-    return {"status":"success","message":"cancelled"}
-
-def _pro_render_worker(job_id: str):
-    """Main worker: runs the full pipeline for a job_id"""
-    job = load_job_checkpoint(job_id)
+def _render_worker(job_id: str, tts_text: Optional[str]=None):
+    job = load_job(job_id)
     if not job:
         return
     try:
         job["status"]="running"
-        save_job_checkpoint(job_id, job)
-        # 1) Prompt optimize
-        style = job.get("style", DEFAULT_STYLE)
-        optimized_prompt = prompt_optimizer_simple(job["script"], style=style)
-        job["optimized_prompt"] = optimized_prompt
-        save_job_checkpoint(job_id, job)
-        # 2) Select sfx
-        sfx = select_sfx_for_prompt(job["script"])
-        job["sfx"] = sfx
-        save_job_checkpoint(job_id, job)
-        # 3) Render frames (diffusers)
+        save_job(job)
+        optimized = prompt_optimizer_simple(job["script"], style=job.get("style", DEFAULT_STYLE))
+        job["optimized_prompt"] = optimized
+        save_job(job)
+        # frames
+        frames = []
         if DIFFUSERS_AVAILABLE and TORCH_AVAILABLE:
-            pipe = _load_sd_pipeline(model_id="runwayml/stable-diffusion-v1-5", hf_token=HUGGINGFACE_HUB_TOKEN)
-            frames = _synthesize_frames_from_prompt(pipe, optimized_prompt, num_frames=max(1, job["duration_sec"]*job["fps"]), width=job["width"], height=job["height"])
-            job["frames"] = frames
-            save_job_checkpoint(job_id, job)
-            # 4) Temporal smoothing
-            frames = temporal_smooth_frames(frames)
-            job["frames_smoothed"] = frames
-            save_job_checkpoint(job_id, job)
+            pipe = _load_sd_pipeline()
+            frames = _synthesize_frames(pipe, optimized, num_frames=max(1, job["duration_sec"]*job["fps"]), width=job["width"], height=job["height"])
         else:
-            # fallback: create placeholder single-frame using prompt -> image optional
-            dummy_path = f"/tmp/ucve_placeholder_{uuid.uuid4().hex[:6]}.png"
+            # create placeholder single frame and duplicate
+            p = f"/tmp/visora_placeholder_{uuid.uuid4().hex[:6]}.png"
             if PIL_AVAILABLE:
-                img = Image.new("RGB", (job["width"], job["height"]), (30,30,40))
-                ImageDraw.Draw(img).text((20,20), optimized_prompt[:120], fill=(255,255,255))
-                img.save(dummy_path)
-            frames=[dummy_path]
-            job["frames"]=frames
-            save_job_checkpoint(job_id, job)
-        # 5) TTS
-        audio_path=None
-        if job.get("tts_text"):
-            audio_path = _generate_tts_audio(job["tts_text"], lang="hi", out_path=f"/tmp/ucve_tts_{uuid.uuid4().hex[:6]}.mp3")
-            job["tts"]=audio_path
-            save_job_checkpoint(job_id, job)
-        # 6) Mix SFX + TTS
-        mixed_audio=None
-        if sfx or audio_path:
-            mixed_audio = mix_audio_tracks(audio_path, sfx, job["duration_sec"], f"/tmp/ucve_mix_{uuid.uuid4().hex[:6]}.mp3")
-            job["mixed_audio"]=mixed_audio
-            save_job_checkpoint(job_id, job)
-        # 7) Lipsync (stub)
-        if mixed_audio and frames:
-            lipsync_audio = lipsync_audio_to_video(mixed_audio, reference_frame=frames[0])
-            job["lipsync"] = lipsync_audio
-            save_job_checkpoint(job_id, job)
-        # 8) Compose video
-        video_out = f"/tmp/ucve_final_{job_id}.mp4"
+                im = Image.new("RGB", (job["width"], job["height"]), (40,40,60))
+                ImageDraw.Draw(im).text((20,20), optimized[:200], fill=(255,255,255))
+                im.save(p)
+            frames = [p] * max(1, job["duration_sec"]*job["fps"])
+        job["frames"] = frames
+        save_job(job)
+        # temporal smoothing
+        frames = temporal_smooth_frames(frames)
+        job["frames_smoothed"] = frames
+        save_job(job)
+        # TTS
+        audio_path = None
+        if tts_text:
+            lang = job.get("lang","hi")
+            audio_path = _generate_tts(tts_text, lang=lang, out_path=f"/tmp/visora_tts_{uuid.uuid4().hex[:6]}.mp3")
+            job["tts"] = audio_path
+            save_job(job)
+        # SFX mix
+        sfx = select_sfx(job["script"])
+        mixed = mix_audio_tracks(audio_path, sfx, job["duration_sec"], out_path=f"/tmp/visora_mix_{uuid.uuid4().hex[:6]}.mp3")
+        job["mixed_audio"] = mixed
+        save_job(job)
+        # lipsync stub
+        if mixed:
+            job["lipsync"] = lipsync_stub(mixed, reference_frame=frames[0] if frames else None)
+            save_job(job)
+        # compose video
+        video_out = f"/tmp/visora_video_{job_id}.mp4"
         if MOVIEPY_AVAILABLE and frames:
             clip = ImageSequenceClip(frames, fps=job["fps"])
-            if mixed_audio and os.path.exists(mixed_audio):
-                audioclip = AudioFileClip(mixed_audio)
-                clip = clip.set_audio(audioclip)
+            if mixed and os.path.exists(mixed):
+                clip = clip.set_audio(AudioFileClip(mixed))
             clip.write_videofile(video_out, codec="libx264", audio_codec="aac", verbose=False, logger=None)
         else:
-            # placeholder: if moviepy missing, just return first frame path
-            if frames:
-                video_out = frames[0]
-        job["video"]=video_out
-        job["status"]="done"
-        save_job_checkpoint(job_id, job)
-        # 9) Save memory (append last script to character memory)
-        mem=_load_memory()
-        entry={"time":datetime.utcnow().isoformat(),"script":job["script"],"style":style}
-        mem.setdefault("history",[]).append(entry)
+            # fallback: return first frame path
+            video_out = frames[0] if frames else None
+        job["video"] = video_out
+        job["status"] = "done"
+        save_job(job)
+        # memory save
+        mem = _load_memory()
+        mem["history"].append({"time": datetime.utcnow().isoformat(), "script": job["script"], "style": job["style"]})
         _save_memory(mem)
-        # 10) Optional upload to Firebase
-        if os.getenv("FIREBASE_CRED_PATH"):
-            try:
-                if init_firebase_if_needed():
-                    upload_to_firebase(video_out, f"renders/{os.path.basename(video_out)}")
-            except Exception:
-                pass
-        # increment prometheus
-        if PROM_COUNTER: PROM_COUNTER.inc()
     except Exception as e:
-        logging.exception("job worker failed")
-        job["status"]="failed"
-        job["error"]=str(e)
-        save_job_checkpoint(job_id, job)
+        logging.exception("render worker failed")
+        job["status"] = "failed"
+        job["error"] = str(e)
+        save_job(job)
 
-# =================================================
-# Payments endpoints (same as earlier)
-# =================================================
-@app.post("/payment/stripe/create_checkout_session")
-def payment_stripe_create(amount: int = Form(...), currency: str = Form("usd"), success_url: str = Form(f"{DOMAIN}/success"), cancel_url: str = Form(f"{DOMAIN}/cancel")):
-    if not STRIPE_SECRET_KEY or not stripe:
-        return {"status":"error","message":"Stripe not configured"}
+# ---------------- Advanced v31 endpoint ----------------
+@app.post("/pro/v31_render_advanced")
+def pro_v31_render_advanced(script_text: str = Form(...),
+                            style: str = Form(DEFAULT_STYLE),
+                            duration_sec: int = Form(6),
+                            fps: int = Form(12),
+                            width: int = Form(512),
+                            height: int = Form(512),
+                            lang: str = Form("hi"),
+                            tts_text: Optional[str] = Form(None),
+                            upscale: bool = Form(False),
+                            prosody_pitch: float = Form(1.0),
+                            prosody_rate: float = Form(1.0),
+                            background_tasks: BackgroundTasks = None):
+    """
+    Full v31 advanced pipeline:
+     - optimized prompt
+     - animate-diffusion (if available) -> frames
+     - temporal smoothing
+     - advanced prosody TTS
+     - SFX + mix
+     - lipsync stub
+     - compose video
+     - optional upscale stub
+    """
+    job_id = f"v31_{uuid.uuid4().hex[:8]}"
+    job = {"id": job_id, "status": "queued", "script": script_text, "style": style, "duration_sec": duration_sec, "fps": fps, "width": width, "height": height, "lang": lang}
+    save_job(job)
+    if background_tasks:
+        background_tasks.add_task(_v31_worker, job_id, tts_text, upscale, prosody_pitch, prosody_rate)
+        job["status"]="background_started"
+    else:
+        _v31_worker(job_id, tts_text, upscale, prosody_pitch, prosody_rate)
+    save_job(job)
+    return {"job_id": job_id, "status": job["status"], "message": "v31 queued/started"}
+
+def _v31_worker(job_id: str, tts_text: Optional[str], upscale: bool, prosody_pitch: float, prosody_rate: float):
+    job = load_job(job_id)
+    if not job:
+        return
     try:
-        stripe.api_key = STRIPE_SECRET_KEY
-        session = stripe.checkout.Session.create(
-            payment_method_types=["card"],
-            line_items=[{"price_data":{"currency":currency,"product_data":{"name":"UCVE Credits"},"unit_amount":amount},"quantity":1}],
-            mode="payment",
-            success_url=success_url,
-            cancel_url=cancel_url,
-        )
-        return {"status":"success","checkout_url":session.url,"id":session.id}
-    except Exception:
-        logging.exception("stripe fail")
-        raise HTTPException(status_code=500, detail="stripe error")
+        job["status"] = "running"
+        save_job(job)
+        optimized = prompt_optimizer_simple(job["script"], style=job["style"])
+        job["optimized_prompt"] = optimized
+        save_job(job)
+        # text->motion frames: use SD pipeline as placeholder (or AnimateDiff if integrated)
+        frames = []
+        if DIFFUSERS_AVAILABLE and TORCH_AVAILABLE:
+            try:
+                pipe = _load_sd_pipeline()
+                frames = _synthesize_frames(pipe, optimized, num_frames=max(1, job["duration_sec"]*job["fps"]), width=job["width"], height=job["height"])
+            except Exception:
+                frames = []
+        if not frames:
+            p = f"/tmp/visora_v31_placeholder_{uuid.uuid4().hex[:6]}.png"
+            if PIL_AVAILABLE:
+                im = Image.new("RGB", (job["width"], job["height"]), (30,30,40))
+                ImageDraw.Draw(im).text((20,20), optimized[:200], fill=(255,255,255))
+                im.save(p)
+            frames = [p] * max(1, job["duration_sec"]*job["fps"])
+        job["frames"] = frames
+        save_job(job)
+        # temporal smoothing
+        frames = temporal_smooth_frames(frames)
+        job["frames_smoothed"] = frames
+        save_job(job)
+        # advanced prosody TTS (here basic wrapper)
+        audio_path = None
+        if tts_text:
+            # try ElevenLabs then fallback
+            audio_path = _generate_tts(tts_text, lang=job.get("lang","hi"), out_path=f"/tmp/v31_tts_{uuid.uuid4().hex[:6]}.mp3")
+            job["tts"] = audio_path
+            save_job(job)
+        # SFX
+        sfx = select_sfx(job["script"])
+        mixed = mix_audio_tracks(audio_path, sfx, job["duration_sec"], out_path=f"/tmp/v31_mix_{uuid.uuid4().hex[:6]}.mp3")
+        job["mixed_audio"] = mixed
+        save_job(job)
+        # lipsync stub
+        if mixed:
+            job["lipsync_audio"] = lipsync_stub(mixed, reference_frame=frames[0] if frames else None)
+            save_job(job)
+        # compose
+        video_out = f"/tmp/v31_video_{job_id}.mp4"
+        if MOVIEPY_AVAILABLE and frames:
+            clip = ImageSequenceClip(frames, fps=job["fps"])
+            if mixed and os.path.exists(mixed):
+                clip = clip.set_audio(AudioFileClip(mixed))
+            clip.write_videofile(video_out, codec="libx264", audio_codec="aac", verbose=False, logger=None)
+        else:
+            video_out = frames[0] if frames else None
+        job["video"] = video_out
+        save_job(job)
+        # upscale optional (stub)
+        if upscale and video_out:
+            job["video_upscaled"] = upscale_stub(video_out, scale=2)
+            save_job(job)
+        job["status"] = "done"
+        save_job(job)
+        mem = _load_memory()
+        mem["history"].append({"time": datetime.utcnow().isoformat(), "script": job["script"], "style": job["style"]})
+        _save_memory(mem)
+    except Exception as e:
+        logging.exception("v31 worker failed")
+        job["status"] = "failed"
+        job["error"] = str(e)
+        save_job(job)
 
-@app.post("/payment/stripe/webhook")
-async def payment_stripe_webhook(request: Request):
-    if not STRIPE_SECRET_KEY or not STRIPE_WEBHOOK_SECRET or not stripe:
-        return {"status":"error","message":"Stripe not configured"}
-    payload = await request.body()
-    sig_header = request.headers.get("stripe-signature")
-    try:
-        event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
-        if event["type"]=="checkout.session.completed":
-            logging.info("stripe checkout completed")
-        return {"status":"success"}
-    except Exception:
-        raise HTTPException(status_code=400, detail="invalid webhook")
+# ---------------- Job status endpoints ----------------
+@app.get("/pro/job_status/{job_id}")
+def pro_job_status(job_id: str):
+    job = load_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
 
-@app.post("/payment/razorpay/create_order")
-def payment_razorpay_create(amount: int = Form(...), currency: str = Form("INR"), receipt: str = Form("rcpt_1")):
-    if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET or not razorpay:
-        return {"status":"error","message":"Razorpay not configured"}
-    try:
-        client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-        order = client.order.create({"amount": amount, "currency": currency, "receipt": receipt})
-        return {"status":"success","order":order}
-    except Exception:
-        logging.exception("razorpay fail")
-        raise HTTPException(status_code=500, detail="razorpay error")
+@app.post("/pro/cancel/{job_id}")
+def pro_cancel(job_id: str):
+    job = load_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job["status"] = "cancelled"
+    save_job(job)
+    return {"status":"cancelled"}
 
-@app.post("/payment/razorpay/verify")
-def payment_razorpay_verify(razorpay_order_id: str = Form(...), razorpay_payment_id: str = Form(...), razorpay_signature: str = Form(...)):
-    if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
-        return {"status":"error","message":"Razorpay not configured"}
-    try:
-        generated = hmac.new(RAZORPAY_KEY_SECRET.encode(), (razorpay_order_id + "|" + razorpay_payment_id).encode(), hashlib.sha256).hexdigest()
-        if generated == razorpay_signature:
-            return {"status":"success","message":"verified"}
-        return {"status":"error","message":"invalid signature"}
-    except Exception:
-        logging.exception("razorpay verify error")
-        raise HTTPException(status_code=500, detail="verify error")
-
-# =================================================
-# Admin & utility endpoints
-# =================================================
-@app.get("/")
-def root():
-    return {"message":"Visora AI UCVE-X running","time":datetime.utcnow().isoformat()}
-
-@app.get("/health")
-def health():
-    return {"status":"ok","time":datetime.utcnow().isoformat()}
-
-@app.get("/admin/list_jobs")
-def admin_list_jobs():
-    files=[f for f in os.listdir(JOBS_DIR) if f.endswith(".json")]
-    jobs=[]
-    for f in files:
-        try:
-            jobs.append(json.load(open(os.path.join(JOBS_DIR,f),"r",encoding="utf-8")))
-        except Exception:
-            pass
-    return {"jobs":jobs}
-
+# ---------------- Admin ----------------
 @app.get("/admin/get_memory")
 def admin_get_memory():
     return _load_memory()
 
-# startup
+# ---------------- Startup logs ----------------
 @app.on_event("startup")
-def startup():
+def startup_event():
     logging.info("Visora AI UCVE-X starting...")
     if TORCH_AVAILABLE:
-        device, dtype = _get_torch_device_and_dtype()
-        logging.info("Torch available. device=%s dtype=%s", device, dtype)
+        logging.info("Torch available. device=%s", ("cuda" if torch.cuda.is_available() else "cpu"))
     else:
-        logging.info("Torch not available; CPU-only")
+        logging.info("Torch not available; running CPU-only fallback")
     if ELEVEN_API_KEY:
         logging.info("ElevenLabs configured")
-    if HUGGINGFACE_HUB_TOKEN:
-        logging.info("HuggingFace token present")
-    logging.info("Startup complete")
+    logging.info("Supported languages: %s", list(SUPPORTED_LANGUAGES.keys()))
+
+# =================================================
+# ========== UCVE-X v32: Character Voice Engine (CVE) ==========
+# =================================================
+# Features:
+#  - upload voice sample per-character (with consent)
+#  - register voice clones (ElevenLabs if available) OR use sample-based approximation
+#  - auto-detect characters from script and assign voices
+#  - generate per-character TTS audio tracks (multi-language choice)
+#  - endpoints: /upload_voice_sample, /list_registered_voices, /assign_voice_to_character,
+#               /generate_character_voices, /get_character_audios
+# Safety: requires user consent flag for cloning. Do NOT clone voices without consent.
+# =================================================
+
+# ensure pydub and requests available (used earlier)
+try:
+    from pydub import AudioSegment
+    PYDUB_AVAILABLE = True
+except Exception:
+    PYDUB_AVAILABLE = PYDUB_AVAILABLE  # keep previous value
+
+# storage for registered voices (in-memory + disk persist)
+VOICE_REGISTRY_FILE = "/tmp/visora_voice_registry.json"
+ensure_dir(VOICE_REGISTRY_FILE)
+def _load_voice_registry():
+    if os.path.exists(VOICE_REGISTRY_FILE):
+        try:
+            return json.load(open(VOICE_REGISTRY_FILE, "r", encoding="utf-8"))
+        except Exception:
+            return {}
+    return {}
+
+def _save_voice_registry(reg: dict):
+    try:
+        with open(VOICE_REGISTRY_FILE, "w", encoding="utf-8") as fh:
+            json.dump(reg, fh, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+# registry structure:
+# {
+#   "<voice_key>": {
+#       "owner": "username_or_id",
+#       "name": "MaheshVoiceSample",
+#       "file": "/tmp/voice_Mahesh_abc.wav",
+#       "eleven_voice_id": "optional-eleven-id",
+#       "lang": "hi",
+#       "gender": "male",
+#       "age_group": "adult",
+#       "consent": True,
+#       "created": "<iso>"
+#   }, ...
+# }
+
+VOICE_REGISTRY = _load_voice_registry()
+
+# helper to register a voice sample (save file + metadata)
+def register_voice_sample(owner_id: str, display_name: str, local_file_path: str, lang: str = "hi", gender: str = "male", age_group: str = "adult", consent: bool = True, eleven_clone: Optional[str] = None):
+    key = f"voice_{uuid.uuid4().hex[:8]}"
+    VOICE_REGISTRY[key] = {
+        "owner": owner_id,
+        "name": display_name,
+        "file": local_file_path,
+        "eleven_voice_id": eleven_clone,
+        "lang": lang,
+        "gender": gender,
+        "age_group": age_group,
+        "consent": bool(consent),
+        "created": datetime.utcnow().isoformat()
+    }
+    _save_voice_registry(VOICE_REGISTRY)
+    return key
+
+# Endpoint: upload voice sample
+@app.post("/upload_voice_sample")
+def upload_voice_sample(owner_id: str = Form(...), display_name: str = Form(...), lang: str = Form("hi"), gender: str = Form("male"), age_group: str = Form("adult"), consent: bool = Form(False), sample: UploadFile = File(...)):
+    """
+    Upload a voice sample for a character.
+    - owner_id: user id (string)
+    - display_name: friendly name for this voice
+    - lang: language code (hi/en/ta/...)
+    - gender: male/female/child/other
+    - age_group: child/adult/old
+    - consent: MUST be True if sample is someone else's voice (legal requirement)
+    - sample: audio file (wav/mp3)
+    Returns: registry_key
+    """
+    # safety: require explicit consent for cloning or usage
+    if consent is not True:
+        # allow upload but mark as no-consent - cannot be used for cloning
+        pass
+    try:
+        local = save_upload_file(sample, prefix=f"voice_sample_{display_name}")
+        # optionally: short-check file length (must be >= 1 sec)
+        try:
+            if PYDUB_AVAILABLE:
+                audio = AudioSegment.from_file(local)
+                dur_s = len(audio)/1000.0
+                # store duration
+                meta_msg = f"{dur_s:.2f}s"
+            else:
+                meta_msg = "unknown"
+        except Exception:
+            meta_msg = "unknown"
+        key = register_voice_sample(owner_id=owner_id, display_name=display_name, local_file_path=local, lang=lang, gender=gender, age_group=age_group, consent=consent, eleven_clone=None)
+        return {"status":"success", "voice_key": key, "message": f"Uploaded ({meta_msg}) - consent={consent}"}
+    except Exception as e:
+        logging.exception("upload_voice_sample failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/list_registered_voices")
+def list_registered_voices(owner_id: Optional[str] = None):
+    """
+    List all registered voices. If owner_id provided, filter by owner.
+    """
+    try:
+        reg = _load_voice_registry()
+        if owner_id:
+            out = {k:v for k,v in reg.items() if v.get("owner")==owner_id}
+        else:
+            out = reg
+        return {"status":"success", "voices": out}
+    except Exception as e:
+        logging.exception("list_registered_voices failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/assign_voice_to_character")
+def assign_voice_to_character(project_id: str = Form(...), character_name: str = Form(...), voice_key: str = Form(...)):
+    """
+    Manual assignment: map a voice_key to a character name in a project.
+    Stored in job checkpoint folder under project mapping file.
+    """
+    try:
+        # simple store per-project mapping file
+        mapfile = f"/tmp/visora_voice_map_{project_id}.json"
+        mapping = {}
+        if os.path.exists(mapfile):
+            mapping = json.load(open(mapfile, "r", encoding="utf-8"))
+        mapping[character_name] = voice_key
+        with open(mapfile, "w", encoding="utf-8") as fh:
+            json.dump(mapping, fh, ensure_ascii=False, indent=2)
+        return {"status":"success", "mapping_file": mapfile}
+    except Exception as e:
+        logging.exception("assign_voice_to_character failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# utility: extract characters from script (heuristic)
+def extract_characters_from_script(script_text: str) -> List[str]:
+    """
+    Heuristic extraction:
+     - lines like "Mahesh: Hello" -> capture names
+     - also capitalized single words at start of line
+    """
+    chars = []
+    for line in script_text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        # pattern: Name: dialogue
+        m = re.match(r"^([A-Za-z\u00C0-\u024F\' ]+):", line)
+        if m:
+            name = m.group(1).strip()
+            if name and name.lower() not in ["narrator", "scene"]:
+                chars.append(name)
+        else:
+            # maybe "Mahesh said ..." - pick leading capitalized word
+            m2 = re.match(r"^([A-Z][a-zA-Z]+)\b", line)
+            if m2:
+                name = m2.group(1)
+                chars.append(name)
+    # unique preserve order
+    seen = set()
+    out = []
+    for c in chars:
+        if c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
+
+# helper: get_voice_for_character (auto assign)
+def _get_voice_for_character(project_id: str, character_name: str):
+    # check project mapping file first
+    mapfile = f"/tmp/visora_voice_map_{project_id}.json"
+    if os.path.exists(mapfile):
+        try:
+            mapping = json.load(open(mapfile, "r", encoding="utf-8"))
+            vk = mapping.get(character_name)
+            if vk and vk in VOICE_REGISTRY:
+                return vk, VOICE_REGISTRY[vk]
+        except Exception:
+            pass
+    # else try to match by character attributes (gender heuristics)
+    # simple heuristic: name endswith 'a' -> likely female (very rough)
+    if character_name.lower().endswith("a"):
+        # find a female voice in registry with same owner? pick first
+        for k, v in VOICE_REGISTRY.items():
+            if v.get("gender") == "female":
+                return k, v
+    # pick any voice matching language 'hi' preferably
+    for k, v in VOICE_REGISTRY.items():
+        if v.get("lang","hi") in SUPPORTED_LANGUAGES:
+            return k, v
+    # fallback: None
+    return None, None
+
+# synthesize character dialogue into audio file (per-line)
+def synthesize_character_line(text: str, voice_meta: dict, lang: str = "hi", out_path: Optional[str] = None):
+    """
+    voice_meta may contain 'eleven_voice_id' or a raw sample file.
+    Strategy:
+     - If eleven_voice_id exists and ELEVEN_API_KEY -> call ElevenLabs TTS with that voice id.
+     - Else if sample file exists -> use fallback: gTTS or use sample + prosody adjustments (approx).
+     - Else -> default TTS (gTTS or ElevenLabs default)
+    Returns: path to audio file or None
+    """
+    out_path = out_path or f"/tmp/visora_char_{uuid.uuid4().hex[:6]}.mp3"
+    try:
+        # 1) ElevenLabs voice id path
+        if voice_meta and voice_meta.get("eleven_voice_id") and ELEVEN_API_KEY and REQUESTS_AVAILABLE:
+            vid = voice_meta.get("eleven_voice_id")
+            # prefer eleven labs TTS call with that id (same function used earlier)
+            audio = _elevenlabs_synthesize(text, voice_id=vid, out_path=out_path)
+            if audio:
+                return audio
+        # 2) If sample exists and pyDub available: try to create variation by concatenating sample's timbre with generated TTS (approx)
+        sample_file = voice_meta.get("file") if voice_meta else None
+        if sample_file and os.path.exists(sample_file) and PYDUB_AVAILABLE:
+            # naive approach: generate neutral TTS (gTTS) then apply sample EQ or overlay tiny sample to create timbre sense
+            tts_tmp = f"/tmp/visora_tmp_{uuid.uuid4().hex[:6]}.mp3"
+            t = _generate_tts(text, lang=lang, out_path=tts_tmp)
+            if t and os.path.exists(t):
+                try:
+                    tts_seg = AudioSegment.from_file(t)
+                    sample_seg = AudioSegment.from_file(sample_file)
+                    # create a texture track by taking first 500ms of sample, looping and low-volume mixing
+                    sample_piece = sample_seg[:400]
+                    loop = sample_piece * (len(tts_seg) // len(sample_piece) + 1)
+                    loop = loop[:len(tts_seg)]
+                    # mix at low volume to avoid garbling
+                    mixed = tts_seg.overlay(loop - 18)
+                    mixed.export(out_path, format="mp3")
+                    return out_path
+                except Exception:
+                    # fallback: return pure tts
+                    if os.path.exists(tts_tmp):
+                        shutil.copy(tts_tmp, out_path)
+                        return out_path
+        # 3) fallback: direct tts
+        audio = _generate_tts(text, lang=lang, out_path=out_path)
+        if audio:
+            return audio
+    except Exception:
+        logging.exception("synthesize_character_line failed")
+    return None
+
+# Endpoint: generate per-character audios for a script
+@app.post("/generate_character_voices")
+def generate_character_voices(project_id: str = Form(...), script_text: str = Form(...), lang: str = Form("hi"), owner_id: str = Form("user"), background_tasks: BackgroundTasks = None):
+    """
+    Analyze the script, detect characters, and generate per-character audios for each dialogue line.
+    Response will contain mapping: { character: [ {line_idx, text, audio_file} ] }
+    """
+    try:
+        chars = extract_characters_from_script(script_text)
+        # Parse dialogues by character: simple grouping
+        dialogues = []
+        for line in script_text.splitlines():
+            line = line.strip()
+            if not line: continue
+            m = re.match(r"^([A-Za-z\u00C0-\u024F\' ]+):\s*(.+)$", line)
+            if m:
+                speaker = m.group(1).strip()
+                txt = m.group(2).strip()
+                dialogues.append((speaker, txt))
+            else:
+                # assign to narrator
+                dialogues.append(("narrator", line))
+        result_map = {}
+        job_key = f"charvoices_{uuid.uuid4().hex[:8]}"
+        save_job({"id": job_key, "status":"queued", "created": datetime.utcnow().isoformat(), "project_id": project_id})
+        # process inline or background
+        def _worker():
+            job = load_job(job_key) or {}
+            job["status"]="running"
+            save_job(job)
+            mapping = {}
+            for idx, (speaker, txt) in enumerate(dialogues):
+                # get voice for speaker (auto or registry)
+                vk, vmeta = _get_voice_for_character(project_id, speaker)
+                if not vmeta:
+                    # create a default placeholder voice meta from registry if any, else None
+                    vk, vmeta = (None, None)
+                # if vmeta exists but consent false and owner != requester -> skip cloning use default
+                if vmeta and not vmeta.get("consent", False) and vmeta.get("owner") != owner_id:
+                    # cannot use this sample for cloning; fallback to default
+                    vmeta = None
+                    vk = None
+                # synthesize
+                out_audio = synthesize_character_line(txt, vmeta, lang=lang, out_path=f"/tmp/{project_id}_{speaker}_{idx}_{uuid.uuid4().hex[:6]}.mp3")
+                mapping.setdefault(speaker, []).append({"index": idx, "text": txt, "audio": out_audio, "voice_key": vk})
+                # small sleep to avoid rate limits
+                time.sleep(0.2)
+            job["status"]="done"
+            job["mapping"] = mapping
+            save_job(job)
+        if background_tasks:
+            background_tasks.add_task(_worker)
+            return {"status":"started", "job_key": job_key}
+        else:
+            _worker()
+            job = load_job(job_key)
+            return {"status":"done", "mapping": job.get("mapping")}
+    except Exception as e:
+        logging.exception("generate_character_voices failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Endpoint: get generated character audios for a job
+@app.get("/get_character_audios/{job_key}")
+def get_character_audios(job_key: str):
+    job = load_job(job_key)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"status": job.get("status"), "mapping": job.get("mapping")}
+
+# =================================================
+# End of Character Voice Engine (v32)
+# =================================================
+
+# =================================================
+# ========== UCVE-X v33+: Render Overlay Integration ==========
+# =================================================
+# Adds photo overlay in final render using Character Visual Engine registry
+
+def _get_character_photo(character_name: str):
+    if character_name in PHOTO_REGISTRY:
+        entry = PHOTO_REGISTRY[character_name]
+        if os.path.exists(entry["photo"]):
+            return entry["photo"]
+    return None
+
+def overlay_character_photo_on_frame(frame_path: str, photo_path: str, out_path: str):
+    """Overlay a character photo (bottom-left) on the given frame."""
+    if not PIL_AVAILABLE:
+        shutil.copy(frame_path, out_path)
+        return out_path
+    try:
+        bg = Image.open(frame_path).convert("RGBA")
+        fg = Image.open(photo_path).convert("RGBA")
+        # resize photo small (thumbnail style)
+        pw, ph = fg.size
+        scale = 0.25
+        new_w = int(bg.width * scale)
+        ratio = new_w / pw
+        new_h = int(ph * ratio)
+        fg = fg.resize((new_w, new_h))
+        # position bottom-left
+        pos = (20, bg.height - new_h - 20)
+        bg.alpha_composite(fg, pos)
+        bg.save(out_path)
+        return out_path
+    except Exception:
+        shutil.copy(frame_path, out_path)
+        return out_path
+
+def _apply_character_photos_to_video(job_id: str, dialogues_map: dict):
+    """Apply photo overlay to each dialogue frame sequence (for each speaker)."""
+    job = load_job(job_id)
+    if not job or not job.get("frames_smoothed"):
+        return
+    frames = job["frames_smoothed"]
+    # iterate dialogues to guess speaker order
+    idx = 0
+    for speaker, items in dialogues_map.items():
+        photo_path = _get_character_photo(speaker)
+        if not photo_path:
+            continue
+        for line in items:
+            if idx < len(frames):
+                f = frames[idx]
+                outf = f.replace(".png", "_char.png")
+                overlay_character_photo_on_frame(f, photo_path, outf)
+                frames[idx] = outf
+            idx += 1
+    job["frames_with_photos"] = frames
+    save_job(job)
+
+# Hook integration in render worker (v31/v32)
+# Call this inside _render_worker or _v31_worker after "frames_smoothed" step
+# Example:
+#   _apply_character_photos_to_video(job_id, job.get("mapping", {}))
+# =================================================
+# End of UCVE-X v33+ Overlay Integration
+# =================================================
+
+# =================================================
+# ========== UCVE-X v34: Dynamic Character Motion Engine (DCME) ==========
+# =================================================
+# Purpose:
+#  - Detect emotion/action from dialogue text
+#  - Animate uploaded character photos (simple transforms) per dialogue line
+#  - Integrate with existing photo-overlay pipeline
+# NOTE: lightweight CPU-friendly approximation (uses OpenCV + PIL if available)
+
+import random
+import numpy as np
+
+# Keywords for emotion/action detection (editable)
+EMOTION_KEYWORDS = {
+    "happy": ["haha", "great", "awesome", "love", "good", "smile", "congrats", "yay"],
+    "sad": ["cry", "sad", "pain", "hurt", "alone", "lost", "sorry", "unfortunately"],
+    "angry": ["angry", "shout", "hate", "fight", "why", "stop", "no"],
+    "surprised": ["wow", "what", "really", "omg", "shock", "oh"],
+    "neutral": []
+}
+
+ACTION_KEYWORDS = {
+    "wave": ["hi", "hello", "hey"],
+    "point": ["look", "see", "there", "watch"],
+    "move_forward": ["run", "go", "come", "move"],
+    "move_backward": ["back", "return", "step back"],
+    "tilt": ["think", "hmm", "consider", "ponder"],
+    "smile": ["smile", "laugh", "chuckle"]
+}
+
+def detect_emotion_action(text: str):
+    """Heuristic detect emotion and action from a line of dialogue."""
+    t = (text or "").lower()
+    emotion = "neutral"
+    action = "none"
+    for e, words in EMOTION_KEYWORDS.items():
+        if any(w in t for w in words):
+            emotion = e
+            break
+    for a, words in ACTION_KEYWORDS.items():
+        if any(w in t for w in words):
+            action = a
+            break
+    return emotion, action
+
+def _ensure_image(path: str):
+    return os.path.exists(path) and PIL_AVAILABLE
+
+def animate_photo(photo_path: str, emotion: str, action: str, out_path: str):
+    """
+    Create a single-frame animated variant of the photo:
+     - change brightness/contrast based on emotion
+     - apply small translation/tilt based on action
+    This returns path to the new image.
+    """
+    try:
+        if not PIL_AVAILABLE:
+            # fallback: copy original
+            shutil.copy(photo_path, out_path)
+            return out_path
+
+        img = Image.open(photo_path).convert("RGBA")
+        w, h = img.size
+
+        # base modifications by emotion
+        if emotion == "happy":
+            # brighten and warm
+            enhancer = Image.new("RGBA", img.size, (12,8,0,0))
+            img = Image.blend(img, enhancer, 0.06)
+        elif emotion == "sad":
+            # cool desaturate
+            gray = img.convert("L").convert("RGBA")
+            img = Image.blend(img, gray, 0.25)
+        elif emotion == "angry":
+            # increase contrast
+            enhancer = Image.new("RGBA", img.size, (30,0,0,0))
+            img = Image.blend(img, enhancer, 0.07)
+        elif emotion == "surprised":
+            enhancer = Image.new("RGBA", img.size, (8,8,20,0))
+            img = Image.blend(img, enhancer, 0.05)
+        # else neutral -> no change
+
+        # small geometric transform based on action
+        dx, dy = 0, 0
+        angle = 0
+        if action == "move_forward":
+            dy = -int(h * 0.02)
+        elif action == "move_backward":
+            dy = int(h * 0.02)
+        elif action == "tilt":
+            angle = random.choice([-6, 6])
+        elif action == "wave":
+            dx = random.choice([-int(w * 0.015), int(w * 0.015)])
+            angle = random.choice([-3, 3])
+        elif action == "point":
+            dx = int(w * 0.01)
+
+        # apply rotation then translation
+        if angle != 0:
+            img = img.rotate(angle, resample=Image.BICUBIC, expand=False)
+        # create new blank and paste with offset
+        new_canvas = Image.new("RGBA", (w, h), (0,0,0,0))
+        paste_x = max(0, min(w, dx + int((w - w) / 2)))
+        paste_y = max(0, min(h, dy + int((h - h) / 2)))
+        new_canvas.paste(img, (paste_x, paste_y), img)
+        # subtle vignette to blend into scene
+        try:
+            overlay = Image.new("RGBA", (w, h), (0,0,0,0))
+            draw = ImageDraw.Draw(overlay)
+            # small translucent border
+            draw.rectangle([0,0,w,h], outline=(0,0,0,20))
+            composed = Image.alpha_composite(new_canvas, overlay)
+            composed.save(out_path)
+        except Exception:
+            new_canvas.save(out_path)
+        return out_path
+    except Exception as e:
+        logging.exception("animate_photo failed: %s", e)
+        try:
+            shutil.copy(photo_path, out_path)
+            return out_path
+        except Exception:
+            return photo_path
+
+def apply_motion_to_dialogues(job_id: str, mapping: dict):
+    """
+    For each dialogue line in mapping (speaker->[ {text,audio,..} ]),
+    create an animated variant of the character photo and overlay it on the frame sequence.
+    """
+    try:
+        job = load_job(job_id)
+        if not job:
+            return
+        frames = job.get("frames_with_photos") or job.get("frames_smoothed") or job.get("frames") or []
+        if not frames:
+            return
+        # mapping expected structure: { "Speaker": [ {index, text, audio, ...}, ... ] }
+        # We'll iterate dialogues in order and update frames by index
+        idx = 0
+        for speaker, lines in (mapping or {}).items():
+            photo_path = _get_character_photo(speaker)
+            if not photo_path:
+                # try to find by voice registry name match
+                for k,v in VOICE_REGISTRY.items():
+                    if v.get("name", "").lower().startswith(speaker.lower()):
+                        photo_path = PHOTO_REGISTRY.get(v.get("name"), {}).get("photo") if PHOTO_REGISTRY.get(v.get("name")) else None
+                        break
+            for li in lines:
+                if idx >= len(frames):
+                    break
+                text = li.get("text", "")
+                emotion, action = detect_emotion_action(text)
+                # create animated thumbnail
+                anim_out = f"/tmp/visora_anim_{speaker}_{uuid.uuid4().hex[:6]}.png"
+                if photo_path and os.path.exists(photo_path):
+                    animate_photo(photo_path, emotion, action, anim_out)
+                    # overlay anim_out onto frame frames[idx]
+                    try:
+                        # reuse overlay_character_photo_on_frame (from v33 overlay block) - bottom-left
+                        overlay_character_photo_on_frame(frames[idx], anim_out, frames[idx])
+                    except Exception:
+                        pass
+                idx += 1
+        # save back
+        job["frames_animated"] = frames
+        save_job(job)
+    except Exception:
+        logging.exception("apply_motion_to_dialogues failed")
+
+# =================================================
+# ========== UCVE-X v35: Social Fountain Engine ==========
+# =================================================
+# Auto-upload rendered video to YouTube, Instagram, Facebook
+# Generates thumbnail, title, hashtags automatically
+# Requires user to have linked social IDs (YouTube/Instagram/Facebook)
+
+SOCIAL_UPLOAD_LOG = "/tmp/visora_social_log.json"
+ensure_dir(SOCIAL_UPLOAD_LOG)
+
+def _load_social_log():
+    if os.path.exists(SOCIAL_UPLOAD_LOG):
+        return json.load(open(SOCIAL_UPLOAD_LOG, "r", encoding="utf-8"))
+    return {}
+
+def _save_social_log(data):
+    with open(SOCIAL_UPLOAD_LOG, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+# Helper: thumbnail generator
+def generate_thumbnail(video_path: str, out_path: str):
+    """Pick a frame near middle of video and save as thumbnail."""
+    try:
+        import cv2
+        cap = cv2.VideoCapture(video_path)
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        target = frame_count // 2
+        cap.set(cv2.CAP_PROP_POS_FRAMES, target)
+        ret, frame = cap.read()
+        if ret:
+            cv2.imwrite(out_path, frame)
+            cap.release()
+            return out_path
+    except Exception as e:
+        logging.error(f"Thumbnail generation failed: {e}")
+    return None
+
+# Helper: title and tags generator
+def auto_metadata_from_script(script_text: str):
+    """Generate title and hashtags automatically."""
+    lines = script_text.splitlines()
+    topic = lines[0][:50] if lines else "Visora AI Video"
+    hashtags = ["#Motivation", "#AI", "#VisoraAI", "#Inspiration", "#Shorts"]
+    if "love" in script_text.lower():
+        hashtags.append("#Love")
+    if "life" in script_text.lower():
+        hashtags.append("#LifeLessons")
+    title = f"{topic} | Powered by Visora AI"
+    desc = f"Created automatically by Visora AI UCVE-X\n\nScript:\n{script_text[:200]}..."
+    return title, desc, " ".join(hashtags)
+
+# Main API
+@app.post("/publish_to_social")
+def publish_to_social(
+    job_id: str = Form(...),
+    youtube_id: Optional[str] = Form(None),
+    instagram_id: Optional[str] = Form(None),
+    facebook_id: Optional[str] = Form(None),
+    quote_mode: bool = Form(False)
+):
+    """
+    Auto publish rendered video to social platforms.
+    Generates thumbnail, title, hashtags, and logs uploads.
+    """
+    try:
+        job = load_job(job_id)
+        if not job or not job.get("final_video"):
+            raise HTTPException(status_code=404, detail="Rendered video not found.")
+        video_path = job["final_video"]
+        thumb_path = f"/tmp/visora_thumb_{uuid.uuid4().hex[:6]}.jpg"
+        generate_thumbnail(video_path, thumb_path)
+        title, desc, tags = auto_metadata_from_script(job.get("script_text", ""))
+        # Sher (quote) overlay for motivational thumbnails
+        if quote_mode and PIL_AVAILABLE:
+            img = Image.open(thumb_path).convert("RGBA")
+            draw = ImageDraw.Draw(img)
+            font_size = max(20, img.width // 20)
+            draw.text((40, img.height - font_size*2), "🦁 'Be Fearless Like a Tiger' – Visora", fill=(255,255,255,255))
+            img.save(thumb_path)
+        log = _load_social_log()
+        entry = {
+            "job_id": job_id,
+            "title": title,
+            "desc": desc,
+            "tags": tags,
+            "thumb": thumb_path,
+            "video": video_path,
+            "youtube_id": youtube_id,
+            "instagram_id": instagram_id,
+            "facebook_id": facebook_id,
+            "time": datetime.utcnow().isoformat(),
+            "status": "pending"
+        }
+        log[job_id] = entry
+        _save_social_log(log)
+        # NOTE: actual upload would require OAuth tokens for YouTube/Instagram/Facebook
+        # Here we simulate the upload
+        entry["status"] = "uploaded (simulated)"
+        entry["youtube_url"] = f"https://youtube.com/watch?v={uuid.uuid4().hex[:11]}" if youtube_id else None
+        entry["instagram_url"] = f"https://instagram.com/reel/{uuid.uuid4().hex[:9]}" if instagram_id else None
+        entry["facebook_url"] = f"https://facebook.com/video/{uuid.uuid4().hex[:9]}" if facebook_id else None
+        _save_social_log(log)
+        return {"status": "success", "meta": entry}
+    except Exception as e:
+        logging.exception("publish_to_social failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# =================================================
+# End of UCVE-X v35: Social Fountain Engine
+# =================================================
+
+# =================================================
+# ========== UCVE-X v36: Creator Review + Edit Mode ==========
+# =================================================
+
+@app.get("/review_job/{job_id}")
+def review_job(job_id: str):
+    """
+    Returns video preview, auto-generated metadata, and editable fields before upload.
+    """
+    job = load_job(job_id)
+    if not job or not job.get("final_video"):
+        raise HTTPException(status_code=404, detail="Rendered video not found.")
+
+    video_url = f"/tmp/{os.path.basename(job['final_video'])}"
+    thumb_path = f"/tmp/visora_thumb_{uuid.uuid4().hex[:6]}.jpg"
+    generate_thumbnail(job["final_video"], thumb_path)
+    title, desc, tags = auto_metadata_from_script(job.get("script_text", ""))
+    return {
+        "status": "ready_for_review",
+        "video_preview": video_url,
+        "default_title": title,
+        "default_description": desc,
+        "default_tags": tags,
+        "editable": True
+    }
+
+@app.post("/edit_metadata")
+def edit_metadata(
+    job_id: str = Form(...),
+    title: str = Form(...),
+    description: str = Form(...),
+    tags: str = Form(...),
+    quote_mode: bool = Form(False)
+):
+    """
+    Allows user to modify metadata before upload.
+    """
+    job = load_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    meta = {
+        "title": title,
+        "desc": description,
+        "tags": tags,
+        "quote_mode": quote_mode
+    }
+    job["edited_metadata"] = meta
+    save_job(job)
+    return {"status": "metadata_saved", "job_id": job_id, "meta": meta}
+
+@app.post("/confirm_upload")
+def confirm_upload(
+    job_id: str = Form(...),
+    youtube_id: Optional[str] = Form(None),
+    instagram_id: Optional[str] = Form(None),
+    facebook_id: Optional[str] = Form(None)
+):
+    """
+    User confirms upload after review and editing.
+    """
+    job = load_job(job_id)
+    if not job or not job.get("final_video"):
+        raise HTTPException(status_code=404, detail="Rendered video not found.")
+    meta = job.get("edited_metadata", {})
+    title = meta.get("title", "Untitled Video")
+    desc = meta.get("desc", "")
+    tags = meta.get("tags", "#VisoraAI")
+    quote_mode = meta.get("quote_mode", False)
+    result = publish_to_social(
+        job_id=job_id,
+        youtube_id=youtube_id,
+        instagram_id=instagram_id,
+        facebook_id=facebook_id,
+        quote_mode=quote_mode
+    )
+    return {"status": "uploaded", "job_id": job_id, "result": result}
 
 # End of file
