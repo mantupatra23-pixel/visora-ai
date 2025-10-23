@@ -20,13 +20,31 @@ jobs:
           flutter-version: '3.19.6'
           channel: 'stable'
 
-      - name: Install Dependencies
+      - name: Clean Old Flutter Cache
+        run: flutter clean
+
+      - name: Auto-Migrate Android Embedding
+        run: |
+          echo "Checking MainActivity..."
+          if grep -q "io.flutter.app.FlutterActivity" android/app/src/main/*/*/MainActivity.java 2>/dev/null; then
+            echo "Migrating Java file..."
+            sed -i 's/io.flutter.app.FlutterActivity/io.flutter.embedding.android.FlutterActivity/g' android/app/src/main/*/*/MainActivity.java
+          fi
+
+          if grep -q "io.flutter.app.FlutterActivity" android/app/src/main/*/*/MainActivity.kt 2>/dev/null; then
+            echo "Migrating Kotlin file..."
+            sed -i 's/io.flutter.app.FlutterActivity/io.flutter.embedding.android.FlutterActivity/g' android/app/src/main/*/*/MainActivity.kt
+          fi
+
+          echo "Migration complete ✅"
+
+      - name: Get Dependencies
         run: flutter pub get
 
       - name: Build Release APK
         run: flutter build apk --release --dart-define=BASE_URI=https://visora-ai-5nqs.onrender.com
 
-      - name: Upload Release APK
+      - name: Upload APK
         uses: actions/upload-artifact@v3
         with:
           name: VisoraAI-Release-APK
