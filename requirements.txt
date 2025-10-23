@@ -83,9 +83,9 @@ Pillow==10.3.0
 requests==2.32.3
 python-multipart==0.0.9
 
-# 🦁 Text Generation + Thumbnail Metadata
-transformers==4.44.2
-huggingface-hub==0.23.0
+# 🦁 Text Generation + Thumbnail Metadata (Render Safe Versions)
+transformers==4.37.2
+huggingface-hub==0.20.3
 
 # ============================================================
 # ✅ END OF REQUIREMENTS (Render Safe | UCVE-X v35)
