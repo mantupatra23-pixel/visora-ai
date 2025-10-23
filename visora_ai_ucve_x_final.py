@@ -605,6 +605,98 @@ def startup_event():
         logging.info("ElevenLabs configured")
     logging.info("Supported languages: %s", list(SUPPORTED_LANGUAGES.keys()))
 
+# ======================================================
+# ⚡ Real-Time WebSocket + Firebase Sync Integration
+# ======================================================
+from fastapi import WebSocket, WebSocketDisconnect
+import asyncio
+
+active_connections = {}
+
+@app.websocket("/ws/status/{job_id}")
+async def websocket_status(websocket: WebSocket, job_id: str):
+    await websocket.accept()
+    active_connections[job_id] = websocket
+    logging.info(f"Client connected for job {job_id}")
+
+    try:
+        progress = 0
+        while True:
+            # Simulate progress (replace with actual redis/fb data)
+            progress_data = get_render_progress(job_id)
+            await websocket.send_json(progress_data)
+            
+            if progress_data.get("status") == "completed":
+                logging.info(f"Job {job_id} completed, closing socket.")
+                await websocket.close()
+                break
+
+            await asyncio.sleep(5)
+    except WebSocketDisconnect:
+        logging.info(f"Client disconnected from job {job_id}")
+        if job_id in active_connections:
+            del active_connections[job_id]
+    except Exception as e:
+        logging.error(f"WebSocket error for job {job_id}: {str(e)}")
+        if job_id in active_connections:
+            del active_connections[job_id]
+
+
+# 🧠 Dummy progress generator (replace with Redis/Firebase sync)
+def get_render_progress(job_id: str):
+    # Example structure — replace with actual logic
+    return {
+        "job_id": job_id,
+        "progress": 78,  # 0–100
+        "status": "rendering",
+        "eta_sec": 42,
+        "message": "Generating realistic frames..."
+    }
+
+# ======================================================
+# 🎞️ Auto Thumbnail Preview + Live Frame Stream
+# ======================================================
+import io, base64
+from moviepy.editor import VideoFileClip
+from PIL import Image
+
+@app.websocket("/ws/preview/{job_id}")
+async def websocket_preview(websocket: WebSocket, job_id: str):
+    await websocket.accept()
+    logging.info(f"Live preview socket opened for job {job_id}")
+    try:
+        while True:
+            frame_data = generate_preview_frame(job_id)
+            if frame_data:
+                await websocket.send_json(frame_data)
+            await asyncio.sleep(10)  # every 10 sec
+    except WebSocketDisconnect:
+        logging.info(f"Preview disconnected for {job_id}")
+    except Exception as e:
+        logging.error(f"Preview error for {job_id}: {str(e)}")
+
+
+def generate_preview_frame(job_id: str):
+    """Extracts a single frame, encodes to base64 and uploads to Firebase"""
+    try:
+        video_path = f"/tmp/{job_id}.mp4"
+        clip = VideoFileClip(video_path)
+        frame = clip.get_frame(clip.duration * 0.8)  # near-final frame
+        clip.close()
+
+        img = Image.fromarray(frame)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG")
+        b64img = base64.b64encode(buf.getvalue()).decode("utf-8")
+
+        # 🪄 Firebase upload for preview
+        db.collection("jobs").document(job_id).update({"preview_b64": b64img})
+
+        return {"job_id": job_id, "preview": b64img, "status": "rendering"}
+    except Exception as e:
+        logging.warning(f"Preview generation failed: {str(e)}")
+        return None
+
 # =================================================
 # ========== UCVE-X v32: Character Voice Engine (CVE) ==========
 # =================================================
