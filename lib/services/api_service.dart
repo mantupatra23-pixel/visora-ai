@@ -1,54 +1,74 @@
-import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class ApiService {
-  // Simulated delay for API calls
-  static Future<void> delay() async =>
-      await Future.delayed(const Duration(milliseconds: 500));
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://visora-ai-5nqs.onrender.com',
+  );
 
-  // Create new video job
-  static Future<String> createVideoJob({
+  // 🔹 Create Video Job
+  static Future<String?> createVideoJob({
     required String title,
     required String script,
+    String? voice,
+    String? language,
+    String? quality,
   }) async {
-    await delay();
-    return "JOB_${DateTime.now().millisecondsSinceEpoch}";
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/api/video/create"),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "title": title,
+          "script": script,
+          "voice": voice ?? "default",
+          "language": language ?? "en",
+          "quality": quality ?? "1080p",
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['job_id'];
+      } else {
+        print("❌ API Error: ${response.body}");
+        return null;
+      }
+    } catch (e) {
+      print("⚠️ Exception in createVideoJob: $e");
+      return null;
+    }
   }
 
-  // Get job status
-  static Future<Map<String, dynamic>> getJobStatus(String jobId) async {
-    await delay();
-    return {"status": "completed", "jobId": jobId};
+  // 🔹 Get Video Job Status
+  static Future<String> getJobStatus(String jobId) async {
+    try {
+      final response = await http.get(Uri.parse("$baseUrl/api/video/status/$jobId"));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['status'] ?? "unknown";
+      } else {
+        return "error";
+      }
+    } catch (e) {
+      print("⚠️ getJobStatus error: $e");
+      return "error";
+    }
   }
 
-  // Get templates
-  static Future<List<Map<String, String>>> get(String endpoint) async {
-    await delay();
-    return [
-      {"id": "1", "title": "AI Motivational Template"},
-      {"id": "2", "title": "YouTube Shorts Auto Style"},
-    ];
-  }
-
-  // Get Profile
-  static Future<Map<String, String>> getProfile() async {
-    await delay();
-    return {"name": "Aimantuvya", "role": "Creator", "tier": "Premium"};
-  }
-
-  // Clear Token (Logout Simulation)
-  static Future<void> clearToken() async {
-    await delay();
-  }
-
-  // Edit or re-create video
-  static Future<String> editVideoJob(String id, String request) async {
-    await delay();
-    return "Edited_$id";
-  }
-
-  // Generic endpoint support
-  static Future<Map<String, dynamic>> getApi(String endpoint) async {
-    await delay();
-    return {"endpoint": endpoint, "status": "ok"};
+  // 🔹 Get Final Video URL / Result
+  static Future<String?> getVideoResult(String jobId) async {
+    try {
+      final response = await http.get(Uri.parse("$baseUrl/api/video/result/$jobId"));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['video_url'];
+      }
+      return null;
+    } catch (e) {
+      print("⚠️ getVideoResult error: $e");
+      return null;
+    }
   }
 }
