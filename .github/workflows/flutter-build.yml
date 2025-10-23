@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build:
@@ -17,15 +18,16 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.19.6'
+          channel: 'stable'
 
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --release
+      - name: Build Release APK
+        run: flutter build apk --release --dart-define=BASE_URI=https://visora-ai-5nqs.onrender.com
 
-      - name: Upload APK Artifact
+      - name: Upload Release APK
         uses: actions/upload-artifact@v3
         with:
-          name: visora-ai-apk
+          name: VisoraAI-Release-APK
           path: build/app/outputs/flutter-apk/app-release.apk
