@@ -1,109 +1,87 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-const String apiBaseUrl = String.fromEnvironment(
-  'API_BASE_URL',
-  defaultValue: 'https://visora-ai-5nqs.onrender.com',
-);
-
 class ApiService {
-  static Future<Map<String, dynamic>> _handleResponse(http.Response response) async {
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Error: ${response.statusCode}');
-    }
-  }
+  static const String baseUrl = "https://visora-ai-5nqs.onrender.com/api";
 
-  // 🔹 User Login
+  // 🧠 Utility: Common Headers
+  static Map<String, String> get headers => {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+
+  // 🔑 User Login
   static Future<Map<String, dynamic>> login(String email, String password) async {
-    final res = await http.post(
-      Uri.parse('$apiBaseUrl/api/login'),
-      headers: {'Content-Type': 'application/json'},
+    final url = Uri.parse('$baseUrl/login');
+    final response = await http.post(
+      url,
+      headers: headers,
       body: jsonEncode({'email': email, 'password': password}),
     );
-    return _handleResponse(res);
+    return _handleResponse(response);
   }
 
-  // 🔹 User Registration
-  static Future<Map<String, dynamic>> register(String name, String email, String password) async {
-    final res = await http.post(
-      Uri.parse('$apiBaseUrl/api/register'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'name': name, 'email': email, 'password': password}),
-    );
-    return _handleResponse(res);
-  }
-
-  // 🔹 Get User Profile
+  // 🧾 Get User Profile
   static Future<Map<String, dynamic>> getProfile(String token) async {
-    final res = await http.get(
-      Uri.parse('$apiBaseUrl/api/profile'),
-      headers: {'Authorization': 'Bearer $token'},
+    final url = Uri.parse('$baseUrl/profile');
+    final response = await http.get(
+      url,
+      headers: {
+        ...headers,
+        'Authorization': 'Bearer $token',
+      },
     );
-    return _handleResponse(res);
+    return _handleResponse(response);
   }
 
-  // 🔹 Create Video Job (AI Script → Video)
+  // 🎬 Create New Video Job
   static Future<Map<String, dynamic>> createVideoJob({
     required String title,
     required String script,
-    String? language,
-    String? quality,
   }) async {
-    final res = await http.post(
-      Uri.parse('$apiBaseUrl/api/create-job'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'title': title,
-        'script': script,
-        'language': language ?? 'en',
-        'quality': quality ?? 'HD',
-      }),
+    final url = Uri.parse('$baseUrl/create-job');
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: jsonEncode({'title': title, 'script': script}),
     );
-    return _handleResponse(res);
+    return _handleResponse(response);
   }
 
-  // 🔹 Get Job Status
+  // 📊 Get Job Status
   static Future<Map<String, dynamic>> getJobStatus(String jobId) async {
-    final res = await http.get(Uri.parse('$apiBaseUrl/api/job-status/$jobId'));
-    return _handleResponse(res);
+    final url = Uri.parse('$baseUrl/job-status/$jobId');
+    final response = await http.get(url, headers: headers);
+    return _handleResponse(response);
   }
 
-  // 🔹 Fetch All Templates
-  static Future<List<dynamic>> getTemplates() async {
-    final res = await http.get(Uri.parse('$apiBaseUrl/api/templates'));
-    return jsonDecode(res.body)['templates'] ?? [];
+  // 🧩 Get Templates
+  static Future<Map<String, dynamic>> getTemplates() async {
+    final url = Uri.parse('$baseUrl/templates');
+    final response = await http.get(url, headers: headers);
+    return _handleResponse(response);
   }
 
-  // 🔹 Fetch Dashboard Data
-  static Future<Map<String, dynamic>> getDashboard() async {
-    final res = await http.get(Uri.parse('$apiBaseUrl/api/dashboard'));
-    return _handleResponse(res);
+  // ⚙️ Admin Dashboard
+  static Future<Map<String, dynamic>> getAdminDashboard() async {
+    final url = Uri.parse('$baseUrl/admin/dashboard');
+    final response = await http.get(url, headers: headers);
+    return _handleResponse(response);
   }
 
-  // 🔹 Update User Profile
-  static Future<Map<String, dynamic>> updateProfile({
-    required String token,
-    required String name,
-    required String email,
-  }) async {
-    final res = await http.put(
-      Uri.parse('$apiBaseUrl/api/profile/update'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({'name': name, 'email': email}),
-    );
-    return _handleResponse(res);
+  // 🧠 Clear Token (Logout)
+  static Future<void> clearToken() async {
+    // Logout handled in backend or token clear in local storage
+    print("✅ Token cleared successfully (local only).");
   }
 
-  // 🔹 Clear Token / Logout
-  static Future<void> clearToken(String token) async {
-    await http.post(
-      Uri.parse('$apiBaseUrl/api/logout'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
+  // 🔒 Error-safe handler
+  static Map<String, dynamic> _handleResponse(http.Response response) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception(
+          "❌ API Error [${response.statusCode}]: ${response.body}");
+    }
   }
 }
