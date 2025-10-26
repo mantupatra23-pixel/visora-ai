@@ -1480,7 +1480,7 @@ async def generate_video(request: Request, background_tasks: BackgroundTasks):
         logging.info(f"[{job_id}] Video job accepted - lang={lang}, voice={voice}, style={style}")
 
         # Background task (non-blocking render)
-        background_tasks.add_task(process_video, job_id, script_text, lang, voice, style, duration_sec)
+         background_tasks.add_task(process_video, script_text, voice, lang, style)
 
         return {
             "status": "accepted",
@@ -1491,5 +1491,79 @@ async def generate_video(request: Request, background_tasks: BackgroundTasks):
     except Exception as e:
         logging.error(f"Error in /generate_video: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+# ===================== 🎬 UCVE-X31 REAL VIDEO PIPELINE =====================
+
+def process_video(script_text: str, voice_gender: str, language: str, quality: str):
+    """
+    UCVE-X31 Real Mode:
+    1️⃣ Generate realistic voice (TTS)
+    2️⃣ Generate cinematic text frames
+    3️⃣ Merge frames + voice into a video
+    """
+
+    import os, uuid, time
+    from gtts import gTTS
+    from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
+    from PIL import Image, ImageDraw, ImageFont
+    from fastapi import HTTPException
+
+    try:
+        job_id = str(uuid.uuid4())
+        output_dir = f"/tmp/{job_id}"
+        os.makedirs(output_dir, exist_ok=True)
+
+        logging.info(f"🎬 UCVE-X31 | Start | Job={job_id}")
+
+        # STEP 1️⃣: TEXT TO SPEECH
+        voice_file = os.path.join(output_dir, "voice.mp3")
+        logging.info(f"🗣️ Generating voice in {language} | Gender={voice_gender}")
+        tts = gTTS(text=script_text, lang=language)
+        tts.save(voice_file)
+
+        # STEP 2️⃣: CREATE CINEMATIC TEXT FRAMES
+        lines = [l.strip() for l in script_text.split(".") if l.strip()]
+        clips = []
+        font = ImageFont.load_default()
+        frame_index = 0
+
+        for line in lines:
+            frame_index += 1
+            img_path = os.path.join(output_dir, f"frame_{frame_index}.png")
+
+            # cinematic frame background
+            img = Image.new("RGB", (1280, 720), color=(15, 15, 25))
+            draw = ImageDraw.Draw(img)
+            text_x, text_y = 100, 300
+            draw.text((text_x, text_y), line, fill=(240, 240, 255), font=font)
+            img.save(img_path)
+
+            clip = ImageClip(img_path).set_duration(3)
+            clips.append(clip)
+
+        # Combine clips into a base video
+        base_video = concatenate_videoclips(clips, method="compose")
+
+        # STEP 3️⃣: ADD VOICE TO VIDEO
+        audio_clip = AudioFileClip(voice_file)
+        final_video = base_video.set_audio(audio_clip)
+        final_output = f"/tmp/{job_id}.mp4"
+
+        # Render video
+        logging.info("🎞️ Rendering final video...")
+        final_video.write_videofile(final_output, fps=24, codec="libx264", audio_codec="aac")
+
+        logging.info(f"✅ UCVE-X31 Render Complete | Output: {final_output}")
+        return {
+            "status": "completed",
+            "job_id": job_id,
+            "output": final_output,
+            "voice": voice_file,
+            "frames": frame_index
+        }
+
+    except Exception as e:
+        logging.error(f"❌ UCVE-X31 Failed: {e}")
+        raise HTTPException(status_code=500, detail=f"UCVE-X31 render failed: {e}")
 
 # End of file
