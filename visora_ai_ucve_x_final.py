@@ -1451,34 +1451,44 @@ def confirm_upload(
 # 🎬 UCVE-X Main Render API (Generate Video Endpoint)
 # ======================================================
 @app.post("/generate_video")
-async def generate_video(
-    script_text: str = Form(...),
-    lang: str = Form("hi"),
-    voice: str = Form("female"),
-    style: str = Form("realistic"),
-    duration_sec: int = Form(10),
-    background_tasks: BackgroundTasks = None
-):
+async def generate_video(request: Request, background_tasks: BackgroundTasks):
     """
-    Handles new video generation job and starts render pipeline.
+    Universal handler for video generation.
+    Accepts both JSON and FormData safely.
     """
     try:
-        job_id = str(uuid.uuid4())
-        logging.info(f"[{job_id}] New video generation request received")
+        # Detect and extract input
+        try:
+            data = await request.json()
+        except:
+            form = await request.form()
+            data = dict(form)
 
-        # background processing
+        # Auto field mapping (frontend compatibility)
+        script_text = data.get("script_text") or data.get("script") or data.get("content") or ""
+        lang = data.get("lang") or data.get("language") or "hi"
+        voice = data.get("voice") or data.get("gender") or "female"
+        style = data.get("style") or data.get("quality") or "realistic"
+        duration_sec = int(data.get("duration_sec") or data.get("duration") or 10)
+
+        if not script_text:
+            raise HTTPException(status_code=422, detail="Missing required field: script_text or script")
+
+        # Generate unique job ID
+        job_id = str(uuid.uuid4())
+        logging.info(f"[{job_id}] Video job accepted - lang={lang}, voice={voice}, style={style}")
+
+        # Background task (non-blocking render)
         background_tasks.add_task(process_video, job_id, script_text, lang, voice, style, duration_sec)
 
-        return {"status": "accepted", "job_id": job_id, "message": "UCVE-X render started"}
-    except Exception as e:
-        logging.error(f"Error while creating video job: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to start job: {str(e)}")
+        return {
+            "status": "accepted",
+            "job_id": job_id,
+            "message": "Video generation started successfully"
+        }
 
-# ======================================================
-# ✅ Health Check Route
-# ======================================================
-@app.get("/")
-def root():
-    return {"message": "Visora AI UCVE-X backend running", "status": "live"}
+    except Exception as e:
+        logging.error(f"Error in /generate_video: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
 # End of file
