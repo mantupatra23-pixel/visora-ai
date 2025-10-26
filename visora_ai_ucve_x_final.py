@@ -1480,7 +1480,7 @@ async def generate_video(request: Request, background_tasks: BackgroundTasks):
         logging.info(f"[{job_id}] Video job accepted - lang={lang}, voice={voice}, style={style}")
 
         # Background task (non-blocking render)
-         background_tasks.add_task(process_video, script_text, voice, lang, style)
+        background_tasks.add_task(process_video, script_text, voice, lang, style)
 
         return {
             "status": "accepted",
