@@ -1447,4 +1447,38 @@ def confirm_upload(
     )
     return {"status": "uploaded", "job_id": job_id, "result": result}
 
+# ======================================================
+# 🎬 UCVE-X Main Render API (Generate Video Endpoint)
+# ======================================================
+@app.post("/generate_video")
+async def generate_video(
+    script_text: str = Form(...),
+    lang: str = Form("hi"),
+    voice: str = Form("female"),
+    style: str = Form("realistic"),
+    duration_sec: int = Form(10),
+    background_tasks: BackgroundTasks = None
+):
+    """
+    Handles new video generation job and starts render pipeline.
+    """
+    try:
+        job_id = str(uuid.uuid4())
+        logging.info(f"[{job_id}] New video generation request received")
+
+        # background processing
+        background_tasks.add_task(process_video, job_id, script_text, lang, voice, style, duration_sec)
+
+        return {"status": "accepted", "job_id": job_id, "message": "UCVE-X render started"}
+    except Exception as e:
+        logging.error(f"Error while creating video job: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start job: {str(e)}")
+
+# ======================================================
+# ✅ Health Check Route
+# ======================================================
+@app.get("/")
+def root():
+    return {"message": "Visora AI UCVE-X backend running", "status": "live"}
+
 # End of file
