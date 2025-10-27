@@ -767,26 +767,17 @@ def _save_voice_registry(reg: dict):
 
 VOICE_REGISTRY = _load_voice_registry()
 
-# helper to register a voice sample (save file + metadata)
-def register_voice_sample(owner_id: str, display_name: str, local_file_path: str, lang: str = "hi", gender: str = "male", age_group: str = "adult", consent: bool = True, eleven_clone: Optional[str] = None):
-    key = f"voice_{uuid.uuid4().hex[:8]}"
-    VOICE_REGISTRY[key] = {
-        "owner": owner_id,
-        "name": display_name,
-        "file": local_file_path,
-        "eleven_voice_id": eleven_clone,
-        "lang": lang,
-        "gender": gender,
-        "age_group": age_group,
-        "consent": bool(consent),
-        "created": datetime.utcnow().isoformat()
-    }
-    _save_voice_registry(VOICE_REGISTRY)
-    return key
-
 # Endpoint: upload voice sample
 @app.post("/upload_voice_sample")
-def upload_voice_sample(owner_id: str = Form(...), display_name: str = Form(...), lang: str = Form("hi"), gender: str = Form("male"), age_group: str = Form("adult"), consent: bool = Form(False), sample: UploadFile = File(...)):
+def upload_voice_sample(
+    owner_id: str = Form(...),
+    display_name: str = Form(...),
+    lang: str = Form(...),
+    gender: str = Form(...),
+    age_group: str = Form(...),
+    consent: bool = Form(...),
+    sample: UploadFile = File(...)
+):
     """
     Upload a voice sample for a character.
     - owner_id: user id (string)
@@ -798,28 +789,48 @@ def upload_voice_sample(owner_id: str = Form(...), display_name: str = Form(...)
     - sample: audio file (wav/mp3)
     Returns: registry_key
     """
+
     # safety: require explicit consent for cloning or usage
     if consent is not True:
         # allow upload but mark as no-consent - cannot be used for cloning
         pass
+
     try:
         local = save_upload_file(sample, prefix=f"voice_sample_{display_name}")
         # optionally: short-check file length (must be >= 1 sec)
         try:
             if PYDUB_AVAILABLE:
                 audio = AudioSegment.from_file(local)
-                dur_s = len(audio)/1000.0
+                dur_s = len(audio) / 1000.0
                 # store duration
                 meta_msg = f"{dur_s:.2f}s"
             else:
                 meta_msg = "unknown"
         except Exception:
             meta_msg = "unknown"
-        key = register_voice_sample(owner_id=owner_id, display_name=display_name, local_file_path=local, lang=lang, gender=gender, age_group=age_group, consent=consent, eleven_clone=None)
-        return {"status":"success", "voice_key": key, "message": f"Uploaded ({meta_msg}) - consent={consent}"}
+
+        key = register_voice_sample(
+            owner_id=owner_id,
+            display_name=display_name,
+            local_file_path=local,
+            eleven_clone="",
+            lang=lang,
+            gender=gender,
+            age_group=age_group,
+            consent=consent
+        )
+        return {
+            "status": "success",
+            "voice_key": key,
+            "message": f"Uploaded successfully ({meta_msg})"
+        }
+
     except Exception as e:
-    logging.error(f"upload_voice_sample failed: {str(e)}")
-    return {"status": "failed", "error": str(e)}
+        logging.error(f"upload_voice_sample failed: {str(e)}")
+        return {
+            "status": "failed",
+            "error": str(e)
+        }
 
 @app.get("/list_registered_voices")
 def list_registered_voices(owner_id: Optional[str] = None):
