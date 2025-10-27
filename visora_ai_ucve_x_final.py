@@ -817,9 +817,9 @@ def upload_voice_sample(owner_id: str = Form(...), display_name: str = Form(...)
             meta_msg = "unknown"
         key = register_voice_sample(owner_id=owner_id, display_name=display_name, local_file_path=local, lang=lang, gender=gender, age_group=age_group, consent=consent, eleven_clone=None)
         return {"status":"success", "voice_key": key, "message": f"Uploaded ({meta_msg}) - consent={consent}"}
-    except Exception as e:
-       logging.error(f"upload_voice_sample failed: {str(e)}")
-return {"status": "failed", "error": str(e)}
+  except Exception as e:
+    logging.error(f"upload_voice_sample failed: {str(e)}")
+    return {"status": "failed", "error": str(e)}
 
 @app.get("/list_registered_voices")
 def list_registered_voices(owner_id: Optional[str] = None):
