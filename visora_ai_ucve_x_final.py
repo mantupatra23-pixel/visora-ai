@@ -1509,17 +1509,16 @@ async def generate_video(request: Request, background_tasks: BackgroundTasks):
 # ===================== 🎬 UCVE-X31 REAL VIDEO PIPELINE =====================
 
 def process_video(script_text: str, voice_gender: str, language: str, quality: str):
+    """UCVE-X31 Real Mode:
+    1 Generate realistic voice (TTS)
+    2 Generate cinematic text frames
+    3 Merge frames + voice into a video
     """
-    UCVE-X31 Real Mode:
-    1️⃣ Generate realistic voice (TTS)
-    2️⃣ Generate cinematic text frames
-    3️⃣ Merge frames + voice into a video
-
-    # ✅ Normalize language codes (Hindi, English etc.)
-if language.lower() in ["hi-in", "hi_in", "hindi"]:
-    language = "hi"
-elif language.lower() in ["en-in", "english"]:
-    language = "en"
+    # ✅ Normalize language codes
+    if language.lower() in ["hi-in", "hi_in", "hindi"]:
+        language = "hi"
+    elif language.lower() in ["en-in", "english"]:
+        language = "en"
 
     import os, uuid, time
     from gtts import gTTS
