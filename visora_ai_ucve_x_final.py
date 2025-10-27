@@ -24,6 +24,8 @@ from typing import List, Optional, Dict
 from fastapi import FastAPI, Form, UploadFile, File, BackgroundTasks, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketDisconnect
+import shutil
+from fastapi.responses import FileResponse
 
 # Initialize app
 app = FastAPI()
@@ -1540,6 +1542,34 @@ async def generate_video(request: Request, background_tasks: BackgroundTasks):
     except Exception as e:
         logging.error(f"Error in /generate_video: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+# ===========================================================
+# ✅ UCVE-X32 Permanent Storage + Playback Route
+# ===========================================================
+
+VIDEO_OUTPUT_DIR = "videos"  # permanent folder name
+
+@app.on_event("startup")
+def ensure_video_dir():
+    os.makedirs(VIDEO_OUTPUT_DIR, exist_ok=True)
+
+@app.get("/videos/{job_id}.mp4")
+def get_video(job_id: str):
+    """
+    Allow user to download or stream rendered videos
+    """
+    path = os.path.join(VIDEO_OUTPUT_DIR, f"{job_id}.mp4")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Video not found")
+    return FileResponse(path, media_type="video/mp4")
+
+# Modify your process_video() save part:
+# (Replace tmp path with this permanent one)
+def save_final_video(temp_path, job_id):
+    final_path = os.path.join(VIDEO_OUTPUT_DIR, f"{job_id}.mp4")
+    shutil.move(temp_path, final_path)
+    logging.info(f"✅ Final video saved: {final_path}")
+    return final_path
 
 # ===================== 🎬 UCVE-X31 REAL VIDEO PIPELINE =====================
 
