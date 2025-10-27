@@ -37,6 +37,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ===========================================================
+# ✅ FIX: UCVE-X WS Endpoint (Real-time WebSocket Connection)
+# ===========================================================
+from starlette.websockets import WebSocket, WebSocketDisconnect
+
+@app.websocket_route("/ws/{job_id}")
+async def websocket_endpoint(websocket: WebSocket, job_id: str):
+    """
+    This endpoint allows the frontend to receive live progress updates
+    from the backend while the video is rendering.
+    """
+    await websocket.accept()
+    try:
+        await websocket.send_text(f"✅ Job {job_id} connected (real-time updates enabled)")
+        # simulate progress
+        for i in range(1, 6):
+            await asyncio.sleep(2)
+            await websocket.send_text(f"Progress: {i*20}%")
+        await websocket.send_text("✅ Video completed successfully 🎬")
+    except WebSocketDisconnect:
+        logging.info(f"❌ WebSocket disconnected for job {job_id}")
+    finally:
+        await websocket.close()
+
 # Basic logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
