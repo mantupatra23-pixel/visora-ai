@@ -13,18 +13,32 @@ Features:
  - Single-file drop-in for Render or local
 Author: prepared for you
 """
-
 import os
 import re
 import uuid
 import json
 import logging
-import shutil
 import time
 from datetime import datetime
 from typing import List, Optional, Dict
-from fastapi import FastAPI, Form, UploadFile, File, BackgroundTasks, HTTPException
-from fastapi import FastAPI, Form, HTTPException, BackgroundTasks, Request
+from fastapi import FastAPI, Form, UploadFile, File, BackgroundTasks, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.websockets import WebSocketDisconnect
+
+# Initialize app
+app = FastAPI()
+
+# ✅ Enable CORS & WS connections
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Basic logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 # Basic logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -804,8 +818,8 @@ def upload_voice_sample(owner_id: str = Form(...), display_name: str = Form(...)
         key = register_voice_sample(owner_id=owner_id, display_name=display_name, local_file_path=local, lang=lang, gender=gender, age_group=age_group, consent=consent, eleven_clone=None)
         return {"status":"success", "voice_key": key, "message": f"Uploaded ({meta_msg}) - consent={consent}"}
     except Exception as e:
-        logging.exception("upload_voice_sample failed")
-        raise HTTPException(status_code=500, detail=str(e))
+       logging.error(f"upload_voice_sample failed: {str(e)}")
+return {"status": "failed", "error": str(e)}
 
 @app.get("/list_registered_voices")
 def list_registered_voices(owner_id: Optional[str] = None):
@@ -1500,7 +1514,12 @@ def process_video(script_text: str, voice_gender: str, language: str, quality: s
     1️⃣ Generate realistic voice (TTS)
     2️⃣ Generate cinematic text frames
     3️⃣ Merge frames + voice into a video
-    """
+
+    # ✅ Normalize language codes (Hindi, English etc.)
+if language.lower() in ["hi-in", "hi_in", "hindi"]:
+    language = "hi"
+elif language.lower() in ["en-in", "english"]:
+    language = "en"
 
     import os, uuid, time
     from gtts import gTTS
