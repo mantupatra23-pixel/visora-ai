@@ -1849,4 +1849,205 @@ def stream_video(file_name: str):
 
     return StreamingResponse(iterfile(), media_type="video/mp4")
 
+# ==============================================================
+# ✅ UCVE-X34: Safe Emotion-Animation Layer (Legal, non-deepfake)
+# ==============================================================
+import math
+from pydub import AudioSegment
+from pydub.effects import speedup
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+import numpy as np
+
+# --- Simple emotion detector (fallback / reuse if present) ---
+EMOTION_KEYWORDS = {
+    "happy": ["happy", "smile", "love", "yay", "great"],
+    "sad": ["sad", "cry", "sorry", "lost"],
+    "angry": ["angry", "hate", "stop", "no"],
+    "surprised": ["wow", "what", "omg", "surprise"],
+    "neutral": []
+}
+
+def detect_emotion_simple(text: str):
+    t = (text or "").lower()
+    for e, kws in EMOTION_KEYWORDS.items():
+        if any(w in t for w in kws):
+            return e
+    return "neutral"
+
+# --- Visual effect: apply color tint and brightness based on emotion ---
+def apply_emotion_tint(img_path: str, emotion: str, out_path: str):
+    try:
+        img = Image.open(img_path).convert("RGBA")
+        enhancer = ImageEnhance.Brightness(img)
+        if emotion == "happy":
+            img = enhancer.enhance(1.08)
+            overlay = Image.new("RGBA", img.size, (255, 180, 80, 40))  # warm
+        elif emotion == "sad":
+            img = enhancer.enhance(0.92)
+            overlay = Image.new("RGBA", img.size, (30, 80, 150, 50))   # cool
+        elif emotion == "angry":
+            img = enhancer.enhance(1.05)
+            overlay = Image.new("RGBA", img.size, (120, 20, 20, 40))   # red tint
+        elif emotion == "surprised":
+            overlay = Image.new("RGBA", img.size, (200, 200, 255, 30))
+        else:
+            overlay = Image.new("RGBA", img.size, (0,0,0,0))
+        img = Image.alpha_composite(img, overlay)
+        img.convert("RGB").save(out_path)
+        return out_path
+    except Exception as e:
+        logging.warning(f"apply_emotion_tint failed: {e}")
+        # fallback: copy
+        shutil.copy(img_path, out_path)
+        return out_path
+
+# --- Overlay a small emoji or icon to indicate expression (bottom-right) ---
+def overlay_expression_icon(img_path: str, emotion: str, out_path: str):
+    try:
+        base = Image.open(img_path).convert("RGBA")
+        w,h = base.size
+        icon = Image.new("RGBA", (int(w*0.18), int(w*0.18)), (0,0,0,0))
+        draw = ImageDraw.Draw(icon)
+        font = ImageFont.load_default()
+
+        # simple emoji text (safe, non-photoreal)
+        emoji_map = {
+            "happy": "😊",
+            "sad": "😢",
+            "angry": "😠",
+            "surprised": "😲",
+            "neutral": "🙂"
+        }
+        text = emoji_map.get(emotion, "🙂")
+        tw, th = draw.textsize(text, font=font)
+        draw.text(((icon.width-tw)/2, (icon.height-th)/2), text, font=font, fill=(255,255,255,255))
+
+        # paste icon bottom-right with margin
+        pos = (w - icon.width - 20, h - icon.height - 20)
+        base.alpha_composite(icon, pos)
+        base.convert("RGB").save(out_path)
+        return out_path
+    except Exception as e:
+        logging.warning(f"overlay_expression_icon failed: {e}")
+        shutil.copy(img_path, out_path)
+        return out_path
+
+# --- Cinematic camera motion: small pan/zoom per frame ---
+def apply_camera_motion(img_path: str, out_path: str, motion_type="zoom"):
+    try:
+        img = Image.open(img_path).convert("RGB")
+        w,h = img.size
+        if motion_type == "zoom":
+            scale = 1.06
+            new_w,new_h = int(w*scale), int(h*scale)
+            img2 = img.resize((new_w,new_h), Image.LANCZOS)
+            left = (new_w - w)//2
+            top = (new_h - h)//2
+            crop = img2.crop((left, top, left + w, top + h))
+            crop.save(out_path)
+        elif motion_type == "pan_left":
+            left = int(w*0.05)
+            crop = img.crop((left, 0, w, h)).resize((w,h))
+            crop.save(out_path)
+        else:
+            shutil.copy(img_path, out_path)
+        return out_path
+    except Exception as e:
+        logging.warning(f"apply_camera_motion failed: {e}")
+        shutil.copy(img_path, out_path)
+        return out_path
+
+# --- Voice tint: subtle pitch/speed change (non-destructive) ---
+def apply_voice_emotion_tint(audio_path: str, emotion: str, out_path: str):
+    try:
+        seg = AudioSegment.from_file(audio_path)
+        if emotion == "happy":
+            new = speedup(seg, playback_speed=1.06)
+        elif emotion == "sad":
+            new = seg - 3  # reduce volume slightly
+        elif emotion == "angry":
+            new = speedup(seg, playback_speed=1.08)
+        elif emotion == "surprised":
+            new = speedup(seg, playback_speed=1.02)
+        else:
+            new = seg
+        new.export(out_path, format="mp3")
+        return out_path
+    except Exception as e:
+        logging.warning(f"apply_voice_emotion_tint failed: {e}")
+        shutil.copy(audio_path, out_path)
+        return out_path
+
+# --- Main helper: apply emotion layer to a sequence of frames & audio ---
+def apply_emotion_layer_to_job(job_id: str, mapping: dict):
+    """
+    job_id: id used to locate /tmp/<job_id>.mp4 and frames folder
+    mapping: { "Speaker": [ {"index": idx, "text": "..."} , ... ] }
+    """
+    try:
+        job = load_job(job_id)  # assumes existing load_job/save_job helpers
+        if not job:
+            logging.warning("No job found for emotion layer")
+            return False
+
+        # assume frames stored at job["frames_smoothed"] or job["frames_with_photos"]
+        frames = job.get("frames_with_photos") or job.get("frames_smoothed") or job.get("frames") or []
+        audio = job.get("voice_file") or job.get("final_audio") or None
+        if not frames or not audio:
+            logging.info("No frames/audio to apply emotion layer")
+            return False
+
+        out_frames = []
+        # iterate dialogues if mapping exists, else use sentence-split
+        idx = 0
+        for speaker, lines in (mapping or {}).items():
+            for li in lines:
+                text = li.get("text", "")
+                emotion = detect_emotion_simple(text)
+                # source frame
+                if idx < len(frames):
+                    src = frames[idx]
+                else:
+                    src = frames[-1]
+                step1 = f"/tmp/{uuid.uuid4().hex[:8]}_tint.jpg"
+                step2 = f"/tmp/{uuid.uuid4().hex[:8]}_icon.jpg"
+                step3 = f"/tmp/{uuid.uuid4().hex[:8]}_cam.jpg"
+
+                apply_emotion_tint(src, emotion, step1)
+                overlay_expression_icon(step1, emotion, step2)
+                apply_camera_motion(step2, step3, motion_type="zoom" if idx%2==0 else "pan_left")
+
+                out_frames.append(step3)
+                idx += 1
+
+        # replace job frames and save
+        job["frames_animated_safe"] = out_frames
+        # create new audio tinted
+        if audio:
+            out_audio = f"/tmp/{job_id}_emotion_audio.mp3"
+            # pick global emotion as most common in mapping
+            all_text = " ".join([li.get("text","") for sp in (mapping or {}) for li in (mapping[sp] or [])])
+            global_emotion = detect_emotion_simple(all_text)
+            apply_voice_emotion_tint(audio, global_emotion, out_audio)
+            job["final_audio_emotion"] = out_audio
+
+        save_job(job)
+        logging.info(f"[{job_id}] Emotion layer applied (safe) -> frames: {len(out_frames)}")
+        return True
+    except Exception as e:
+        logging.exception(f"apply_emotion_layer_to_job failed: {e}")
+        return False
+
+# --- API endpoint to trigger emotion layer per job (user can preview & edit) ---
+@app.post("/apply_emotion_layer")
+def api_apply_emotion_layer(job_id: str = Form(...)):
+    """
+    Trigger safe emotion animation for a job.
+    Frontend should call this after render completes. User can preview then confirm upload.
+    """
+    ok = apply_emotion_layer_to_job(job_id, load_job(job_id).get("mapping", {}))
+    if ok:
+        return {"status": "success", "message": "Emotion layer applied"}
+    return {"status": "failed", "message": "Could not apply emotion layer"}
+
 # End of file
