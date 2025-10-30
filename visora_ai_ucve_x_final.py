@@ -2050,4 +2050,20 @@ def api_apply_emotion_layer(job_id: str = Form(...)):
         return {"status": "success", "message": "Emotion layer applied"}
     return {"status": "failed", "message": "Could not apply emotion layer"}
 
+# ======================================================
+# UCVE-X35 Export Route (for Kaggle GPU sync)
+# ======================================================
+from fastapi.responses import FileResponse, JSONResponse
+import shutil, tempfile, os
+
+@app.get("/static/export_backend.zip")
+async def export_backend():
+    try:
+        tmp_dir = tempfile.mkdtemp()
+        zip_path = os.path.join(tmp_dir, "export_backend.zip")
+        shutil.make_archive(zip_path.replace(".zip", ""), 'zip', ".")
+        return FileResponse(zip_path, filename="export_backend.zip")
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
 # End of file
